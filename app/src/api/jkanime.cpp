@@ -8,6 +8,7 @@
 */
 
 #include "api/jkanime.hpp"
+#include "api/diag.hpp"
 
 #include <nlohmann/json.hpp>
 #include <borealis/core/logger.hpp>
@@ -32,7 +33,16 @@ HTTP::Header browserHeaders() {
 }
 
 std::string httpGet(const std::string& url) {
-    return HTTP::get(url, browserHeaders(), HTTP::Timeout{8000});
+    try {
+        std::string body = HTTP::get(url, browserHeaders(), HTTP::Timeout{8000});
+        bool blocked = diag::looksBlocked(body);
+        diag::log("jk GET " + url + " -> " + std::to_string(body.size()) + " bytes" + (blocked ? " [BLOCKED?]" : ""));
+        if (blocked) diag::dump("jk_blocked", url, body);
+        return body;
+    } catch (const std::exception& e) {
+        diag::log("jk GET " + url + " -> ERROR: " + e.what());
+        throw;
+    }
 }
 
 void replaceAll(std::string& subject, const std::string& search, const std::string& repl) {
@@ -701,6 +711,8 @@ void getRecent(std::function<void(std::vector<AnimeCard>)> then, OnError error) 
         try {
             std::string html = httpGet(HOST);
             auto r = parseRecent(html);
+            diag::log("jk recent: " + std::to_string(r.size()) + " cards");
+            if (r.empty()) diag::dump("jk_recent_empty", HOST, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string msg = ex.what();
@@ -714,6 +726,8 @@ void getDirectory(int page, std::function<void(std::vector<AnimeCard>)> then, On
         try {
             std::string html = httpGet(HOST + "directorio?p=" + std::to_string(page));
             auto r = parseDirectory(html);
+            diag::log("jk directory p" + std::to_string(page) + ": " + std::to_string(r.size()) + " cards");
+            if (r.empty() && page == 1) diag::dump("jk_directory_empty", HOST, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string msg = ex.what();
@@ -731,6 +745,8 @@ void search(const std::string& query, std::function<void(std::vector<AnimeCard>)
         try {
             std::string html = httpGet(HOST + "buscar/" + q);
             auto r = parseSearch(html);
+            diag::log("jk search '" + q + "': " + std::to_string(r.size()) + " results");
+            if (r.empty()) diag::dump("jk_search_empty", HOST + "buscar/" + q, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string msg = ex.what();
@@ -745,6 +761,8 @@ void getDetail(const std::string& slug, std::function<void(AnimeDetail)> then, O
         try {
             std::string html = httpGet(HOST + key + "/");
             auto d = parseDetail(key, html);
+            diag::log("jk detail '" + key + "': " + std::to_string(d.episodes.size()) + " eps, status=" + d.status);
+            if (d.episodes.empty()) diag::dump("jk_detail_empty", HOST + key + "/", html);
 
             // Some titles (specials/prologues) number from 0. jkanime serves its
             // "img/404.png" placeholder for a missing episode, so a /0/ page
@@ -777,6 +795,8 @@ void getServers(const std::string& episodeUrl, std::function<void(std::vector<Se
         try {
             std::string html = httpGet(episodeUrl);
             auto r = parseServers(html);
+            diag::log("jk servers " + episodeUrl + ": " + std::to_string(r.size()) + " found");
+            if (r.empty()) diag::dump("jk_servers_empty", episodeUrl, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string msg = ex.what();
@@ -808,10 +828,13 @@ void resolve(const Server& server, std::function<void(Stream)> then, OnError err
                 out.referer = HOST;
             }
 
+            diag::log("jk resolve '" + server.name + "' [" + server.url + "] -> " +
+                (out.url.empty() ? "FAILED" : out.url));
             if (out.url.empty()) throw std::runtime_error("No stream found");
             brls::sync([then, out]() { then(out); });
         } catch (const std::exception& ex) {
             std::string msg = ex.what();
+            diag::log("jk resolve '" + server.name + "' -> ERROR: " + msg);
             if (error) brls::sync([error, msg]() { error(msg); });
         }
     });

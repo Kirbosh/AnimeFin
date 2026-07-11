@@ -5,6 +5,7 @@
 #include "activity/anime_detail.hpp"
 
 #include "api/provider.hpp"
+#include "api/diag.hpp"
 #include "view/recycling_grid.hpp"
 #include "view/video_card.hpp"
 #include "view/video_view.hpp"
@@ -75,6 +76,7 @@ public:
         if (HTTP::PROXY_STATUS) ssextra << ",http-proxy=\"" << HTTP::PROXY << "\"";
         ssextra << stream.mpvExtra();
 
+        diag::log("mpv play '" + title + "' url=" + stream.url + " referer=" + stream.referer);
         AnimePlayer* player = new AnimePlayer(title, stream.url, ssextra.str());
         brls::Application::pushActivity(new brls::Activity(player), brls::TransitionAnimation::NONE);
         brls::Application::giveFocus(player->view);
@@ -192,12 +194,13 @@ void AnimeDetail::load() {
         },
         [this, alive](const std::string& ex) {
             if (!alive->load()) return;
-            this->episodes->setError(ex);
+            this->episodes->setError(ex + "\n" + diag::logPath());
         });
 }
 
 void AnimeDetail::playEpisode(const jk::Episode& ep) {
     std::string title = ep.title;
+    diag::log("open episode " + ep.url);
     brls::Application::blockInputs();
 
     provider::getServers(

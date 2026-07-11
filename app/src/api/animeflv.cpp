@@ -9,6 +9,7 @@
 */
 
 #include "api/animeflv.hpp"
+#include "api/diag.hpp"
 
 #include <nlohmann/json.hpp>
 #include <borealis/core/logger.hpp>
@@ -29,7 +30,18 @@ HTTP::Header headers() {
         "X-Requested-With: XMLHttpRequest"};
 }
 
-std::string httpGet(const std::string& url) { return HTTP::get(url, headers(), HTTP::Timeout{8000}); }
+std::string httpGet(const std::string& url) {
+    try {
+        std::string body = HTTP::get(url, headers(), HTTP::Timeout{8000});
+        bool blocked = diag::looksBlocked(body);
+        diag::log("flv GET " + url + " -> " + std::to_string(body.size()) + " bytes" + (blocked ? " [BLOCKED?]" : ""));
+        if (blocked) diag::dump("flv_blocked", url, body);
+        return body;
+    } catch (const std::exception& e) {
+        diag::log("flv GET " + url + " -> ERROR: " + e.what());
+        throw;
+    }
+}
 
 void replaceAll(std::string& s, const std::string& from, const std::string& to) {
     if (from.empty()) return;
@@ -251,7 +263,10 @@ std::vector<jk::Server> parseServers(const std::string& html) {
 void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
     brls::async([then, error]() {
         try {
-            auto r = parseRecent(httpGet(HOST));
+            std::string html = httpGet(HOST);
+            auto r = parseRecent(html);
+            diag::log("flv recent: " + std::to_string(r.size()) + " cards");
+            if (r.empty()) diag::dump("flv_recent_empty", HOST, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
@@ -263,7 +278,11 @@ void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError
 void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
     brls::async([page, then, error]() {
         try {
-            auto r = parseBrowse(httpGet(HOST + "browse?order=default&page=" + std::to_string(page)));
+            std::string url = HOST + "browse?order=default&page=" + std::to_string(page);
+            std::string html = httpGet(url);
+            auto r = parseBrowse(html);
+            diag::log("flv directory p" + std::to_string(page) + ": " + std::to_string(r.size()) + " cards");
+            if (r.empty() && page == 1) diag::dump("flv_directory_empty", url, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
@@ -276,7 +295,11 @@ void search(const std::string& query, std::function<void(std::vector<jk::AnimeCa
     std::string q = query;
     brls::async([q, then, error]() {
         try {
-            auto r = parseBrowse(httpGet(HOST + "browse?q=" + HTTP::encode_form({{"q", q}}).substr(2)));
+            std::string url = HOST + "browse?q=" + HTTP::encode_form({{"q", q}}).substr(2);
+            std::string html = httpGet(url);
+            auto r = parseBrowse(html);
+            diag::log("flv search '" + q + "': " + std::to_string(r.size()) + " results");
+            if (r.empty()) diag::dump("flv_search_empty", url, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
@@ -289,7 +312,11 @@ void getDetail(const std::string& slug, std::function<void(jk::AnimeDetail)> the
     std::string key = slugOf(slug);
     brls::async([key, then, error]() {
         try {
-            auto d = parseDetail(key, httpGet(HOST + "anime/" + key));
+            std::string url = HOST + "anime/" + key;
+            std::string html = httpGet(url);
+            auto d = parseDetail(key, html);
+            diag::log("flv detail '" + key + "': " + std::to_string(d.episodes.size()) + " eps, status=" + d.status);
+            if (d.episodes.empty()) diag::dump("flv_detail_empty", url, html);
             brls::sync([then, d]() { then(d); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
@@ -301,7 +328,10 @@ void getDetail(const std::string& slug, std::function<void(jk::AnimeDetail)> the
 void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk::Server>)> then, jk::OnError error) {
     brls::async([episodeUrl, then, error]() {
         try {
-            auto r = parseServers(httpGet(episodeUrl));
+            std::string html = httpGet(episodeUrl);
+            auto r = parseServers(html);
+            diag::log("flv servers " + episodeUrl + ": " + std::to_string(r.size()) + " found");
+            if (r.empty()) diag::dump("flv_servers_empty", episodeUrl, html);
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
@@ -318,10 +348,13 @@ void resolve(const jk::Server& server, std::function<void(jk::Stream)> then, jk:
                 out.url = server.url;
                 out.referer = HOST;
             }
+            diag::log("flv resolve '" + server.name + "' [" + server.url + "] -> " +
+                (out.url.empty() ? "FAILED" : out.url));
             if (out.url.empty()) throw std::runtime_error("No stream found");
             brls::sync([then, out]() { then(out); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
+            diag::log("flv resolve '" + server.name + "' -> ERROR: " + m);
             if (error) brls::sync([error, m]() { error(m); });
         }
     });

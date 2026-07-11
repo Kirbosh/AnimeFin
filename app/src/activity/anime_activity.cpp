@@ -7,6 +7,7 @@
 #include "activity/server_list.hpp"
 
 #include "api/provider.hpp"
+#include "api/diag.hpp"
 #include "view/auto_tab_frame.hpp"
 #include "view/video_card.hpp"
 #include "view/svg_image.hpp"
@@ -97,7 +98,7 @@ void AnimeRecentTab::load() {
         },
         [ASYNC_TOKEN](const std::string& ex) {
             ASYNC_RELEASE
-            this->setError(ex);
+            this->setError(ex + "\n" + diag::logPath());
         });
 }
 
@@ -152,7 +153,7 @@ void AnimeDirectoryTab::loadPage() {
         },
         [ASYNC_TOKEN](const std::string& ex) {
             ASYNC_RELEASE
-            if (this->page == 1) this->setError(ex);
+            if (this->page == 1) this->setError(ex + "\n" + diag::logPath());
         });
 }
 
@@ -215,7 +216,7 @@ void AnimeSearchTab::doSearch(const std::string& query) {
                 this->grid->setDataSource(new AnimeCardSource(std::move(r)));
             }
         },
-        [this](const std::string& ex) { this->grid->setError(ex); });
+        [this](const std::string& ex) { this->grid->setError(ex + "\n" + diag::logPath()); });
 }
 
 brls::View* AnimeSearchTab::create() { return new AnimeSearchTab(); }
@@ -247,7 +248,13 @@ brls::View* AnimeJellyfinTab::create() { return new AnimeJellyfinTab(); }
 
 // ------------------------------------------------------------- AnimeActivity
 
-AnimeActivity::AnimeActivity() { brls::Logger::debug("AnimeActivity: create"); }
+AnimeActivity::AnimeActivity() {
+    brls::Logger::debug("AnimeActivity: create");
+    // Creates the diagnostics log up front and records where it lives, so the
+    // very first request is captured and the path is easy to find and share.
+    diag::log(std::string("app opened, default source=") + provider::names().at(static_cast<size_t>(provider::active())));
+    brls::Logger::info("anime diagnostics log: {}", diag::logPath());
+}
 
 AnimeActivity::~AnimeActivity() { brls::Logger::debug("AnimeActivity: delete"); }
 
