@@ -4,6 +4,7 @@
 
 #include "activity/anime_detail.hpp"
 
+#include "api/provider.hpp"
 #include "view/recycling_grid.hpp"
 #include "view/video_card.hpp"
 #include "view/video_view.hpp"
@@ -16,9 +17,17 @@
 
 using namespace brls::literals;
 
-// Browser headers so jkanime's CDN serves the poster thumbnails.
-static HTTP::Header jkImageHeaders() {
-    return {"User-Agent: " + jk::USER_AGENT, "Referer: " + jk::HOST};
+// Browser headers (UA + host-matched referer) so each source's CDN serves the
+// poster/thumbnail images.
+static HTTP::Header jkImageHeaders(const std::string& url = "") {
+    std::string ref;
+    size_t s = url.find("://");
+    if (s != std::string::npos) {
+        size_t e = url.find('/', s + 3);
+        ref = (e == std::string::npos ? url : url.substr(0, e)) + "/";
+    }
+    if (ref.empty()) ref = jk::HOST;
+    return {"User-Agent: " + jk::USER_AGENT, "Referer: " + ref};
 }
 
 // --------------------------------------------------------------- AnimePlayer
@@ -93,7 +102,7 @@ public:
         cell->labelTitle->setText(ep.title);
         cell->labelExt->setVisibility(brls::Visibility::GONE);
         const std::string& img = ep.thumb.empty() ? this->poster : ep.thumb;
-        if (!img.empty()) Image::with(cell->picture, img, jkImageHeaders());
+        if (!img.empty()) Image::with(cell->picture, img, jkImageHeaders(img));
         return cell;
     }
 
@@ -125,7 +134,8 @@ void AnimeDetail::onContentAvailable() {
     this->labelType->getParent()->setVisibility(brls::Visibility::GONE);
     this->labelNext->setVisibility(brls::Visibility::GONE);
 
-    if (!this->card.poster.empty()) Image::with(this->imagePoster, this->card.poster, jkImageHeaders());
+    if (!this->card.poster.empty())
+        Image::with(this->imagePoster, this->card.poster, jkImageHeaders(this->card.poster));
 
     this->episodes->registerCell("Cell", []() { return new MediaCardCell(); });
     this->episodes->spanCount = 4;
@@ -147,8 +157,8 @@ void AnimeDetail::onContentAvailable() {
 
 void AnimeDetail::load() {
     auto alive = this->alive;
-    jk::getDetail(
-        this->card.slug,
+    provider::getDetail(
+        this->card,
         [this, alive](jk::AnimeDetail d) {
             if (!alive->load()) return;
             this->detail = d;
@@ -156,7 +166,7 @@ void AnimeDetail::load() {
 
             // Keep the card's title (set in onContentAvailable) — it is the
             // reliable one; only the richer detail fields are filled in here.
-            if (!d.poster.empty()) Image::with(this->imagePoster, d.poster, jkImageHeaders());
+            if (!d.poster.empty()) Image::with(this->imagePoster, d.poster, jkImageHeaders(d.poster));
 
             if (!d.status.empty()) {
                 this->labelStatus->setText(d.status);
@@ -190,7 +200,7 @@ void AnimeDetail::playEpisode(const jk::Episode& ep) {
     std::string title = ep.title;
     brls::Application::blockInputs();
 
-    jk::getServers(
+    provider::getServers(
         ep.url,
         [title](std::vector<jk::Server> servers) {
             brls::Application::unblockInputs();
@@ -207,7 +217,7 @@ void AnimeDetail::playEpisode(const jk::Episode& ep) {
                 "anime/choose_server"_i18n, names, [servers, title](int selected) {
                     if (selected < 0 || selected >= (int)servers.size()) return;
                     brls::Application::blockInputs();
-                    jk::resolve(
+                    provider::resolve(
                         servers.at(selected),
                         [title](jk::Stream stream) {
                             brls::Application::unblockInputs();

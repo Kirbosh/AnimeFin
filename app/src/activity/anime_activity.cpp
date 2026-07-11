@@ -6,6 +6,7 @@
 #include "activity/anime_detail.hpp"
 #include "activity/server_list.hpp"
 
+#include "api/provider.hpp"
 #include "view/auto_tab_frame.hpp"
 #include "view/video_card.hpp"
 #include "view/svg_image.hpp"
@@ -15,8 +16,28 @@
 
 using namespace brls::literals;
 
-static HTTP::Header jkImageHeaders() {
-    return {"User-Agent: " + jk::USER_AGENT, "Referer: " + jk::HOST};
+// Posters come from each source's own CDN; send a browser UA and a referer
+// matching the image's host so referrer-checked CDNs serve them.
+static HTTP::Header animeImageHeaders(const std::string& url) {
+    std::string ref;
+    size_t s = url.find("://");
+    if (s != std::string::npos) {
+        size_t e = url.find('/', s + 3);
+        ref = (e == std::string::npos ? url : url.substr(0, e)) + "/";
+    }
+    if (ref.empty()) ref = jk::HOST;
+    return {"User-Agent: " + jk::USER_AGENT, "Referer: " + ref};
+}
+
+void showSourcePicker(brls::View* owner, const std::function<void()>& onPick) {
+    brls::Dropdown* d = new brls::Dropdown(
+        "anime/source"_i18n, provider::names(),
+        [onPick](int selected) {
+            provider::setActive(selected == 1 ? provider::Source::FLV : provider::Source::JK);
+            onPick();
+        },
+        static_cast<int>(provider::active()));
+    brls::Application::pushActivity(new brls::Activity(d));
 }
 
 // ------------------------------------------------------------ AnimeCardSource
@@ -35,7 +56,7 @@ RecyclingGridItem* AnimeCardSource::cellForRow(RecyclingView* recycler, size_t i
         cell->labelExt->setVisibility(brls::Visibility::VISIBLE);
         cell->labelExt->setText(item.extra);
     }
-    if (!item.poster.empty()) Image::with(cell->picture, item.poster, jkImageHeaders());
+    if (!item.poster.empty()) Image::with(cell->picture, item.poster, animeImageHeaders(item.poster));
     return cell;
 }
 
@@ -57,10 +78,15 @@ AnimeRecentTab::AnimeRecentTab() {
     this->registerCell("Cell", []() { return new MediaCardCell(); });
     this->estimatedRowHeight = 300;
     this->spanCount = 6;
-    this->showSkeleton();
+    this->registerAction("anime/source"_i18n, brls::BUTTON_X,
+        [this](brls::View*) { showSourcePicker(this, [this]() { this->load(); }); return true; });
+    this->load();
+}
 
+void AnimeRecentTab::load() {
+    this->showSkeleton();
     ASYNC_RETAIN
-    jk::getRecent(
+    provider::getRecent(
         [ASYNC_TOKEN](std::vector<jk::AnimeCard> r) {
             ASYNC_RELEASE
             if (r.empty()) {
@@ -85,9 +111,18 @@ AnimeDirectoryTab::AnimeDirectoryTab() {
     this->registerCell("Cell", []() { return new MediaCardCell(); });
     this->estimatedRowHeight = 300;
     this->spanCount = 6;
-    this->showSkeleton();
+    this->registerAction("anime/source"_i18n, brls::BUTTON_X,
+        [this](brls::View*) { showSourcePicker(this, [this]() { this->reload(); }); return true; });
 
     this->onNextPage([this]() { this->loadPage(); });
+    this->reload();
+}
+
+void AnimeDirectoryTab::reload() {
+    this->page = 1;
+    this->finished = false;
+    this->clearData();
+    this->showSkeleton();
     this->loadPage();
 }
 
@@ -95,7 +130,7 @@ void AnimeDirectoryTab::loadPage() {
     if (this->finished) return;
 
     ASYNC_RETAIN
-    jk::getDirectory(
+    provider::getDirectory(
         this->page,
         [ASYNC_TOKEN](std::vector<jk::AnimeCard> r) {
             ASYNC_RELEASE
@@ -154,13 +189,24 @@ AnimeSearchTab::AnimeSearchTab() {
     this->registerAction("anime/search"_i18n, brls::BUTTON_Y, searchAction);
     this->hint->registerClickAction(searchAction);
     this->grid->registerAction("anime/search"_i18n, brls::BUTTON_Y, searchAction);
+
+    // Switch source; re-run the last query against the new source if any.
+    auto sourceAction = [this](brls::View*) {
+        showSourcePicker(this, [this]() {
+            if (!this->lastQuery.empty()) this->doSearch(this->lastQuery);
+        });
+        return true;
+    };
+    this->registerAction("anime/source"_i18n, brls::BUTTON_X, sourceAction);
+    this->grid->registerAction("anime/source"_i18n, brls::BUTTON_X, sourceAction);
 }
 
 void AnimeSearchTab::doSearch(const std::string& query) {
+    this->lastQuery = query;
     this->hint->setText(fmt::format("{}: {}", "anime/search"_i18n, query));
     this->grid->showSkeleton();
 
-    jk::search(
+    provider::search(
         query,
         [this](std::vector<jk::AnimeCard> r) {
             if (r.empty()) {

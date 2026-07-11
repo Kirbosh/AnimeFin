@@ -682,6 +682,18 @@ Stream resolveFembed(const std::string& embedUrl) {
 
 }  // namespace
 
+Stream resolveEmbedSync(const std::string& serverName, const std::string& url) {
+    std::string name = serverName;
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+    auto has = [&](const char* s) { return name.find(s) != std::string::npos || url.find(s) != std::string::npos; };
+
+    if (has("okru") || has("ok.ru")) return resolveOkru(url);
+    if (has("mixdrop") || has("mdfx") || has("mdbekjwqa") || has("mdy48tn97")) return resolveMixdrop(url);
+    if (has("fembed") || has("/api/source/")) return resolveFembed(url);
+    // StreamWish / Filemoon / Voe / mp4upload / sw and friends.
+    return resolveGeneric(url);
+}
+
 // -------------------------------------------------------------- async wrappers
 
 void getRecent(std::function<void(std::vector<AnimeCard>)> then, OnError error) {
@@ -781,21 +793,12 @@ void resolve(const Server& server, std::function<void(Stream)> then, OnError err
             std::transform(name.begin(), name.end(), name.begin(), ::tolower);
             const std::string& u = server.url;
 
-            auto has = [&](const char* s) { return name.find(s) != std::string::npos || u.find(s) != std::string::npos; };
-
-            if (has("nozomi") || has("desu") || has("gsplay") || has("um2.php")) {
+            // jkanime's own player first, then the shared host resolver.
+            if (name.find("nozomi") != std::string::npos || name.find("desu") != std::string::npos ||
+                u.find("gsplay") != std::string::npos || u.find("um2.php") != std::string::npos) {
                 out = resolveNozomi(u);
-            } else if (has("okru") || has("ok.ru")) {
-                out = resolveOkru(u);
-            } else if (has("mixdrop") || has("mdfx") || has("mdbekjwqa") || has("mdy48tn97")) {
-                out = resolveMixdrop(u);
-            } else if (has("fembed") || has("/api/source/")) {
-                out = resolveFembed(u);
-            } else {
-                // StreamWish / Filemoon / Voe / mp4upload / sw and friends: sniff
-                // the embed for a packed script or a jwplayer `sources` url.
-                out = resolveGeneric(u);
             }
+            if (out.url.empty()) out = resolveEmbedSync(server.name, u);
 
             // Last-ditch fallback: hand mpv the embed url directly. Some hosts
             // serve a plain mp4/m3u8 there; extractor-only ones will fail to load

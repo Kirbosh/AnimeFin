@@ -100,6 +100,12 @@ void getServers(const std::string& episodeUrl, std::function<void(std::vector<Se
 /// Resolve a chosen server to a direct, mpv-playable stream.
 void resolve(const Server& server, std::function<void(Stream)> then, OnError error);
 
+/// Synchronously resolve a generic embed url (ok.ru / Mixdrop / Fembed /
+/// packed-JS & jwplayer hosts) to a direct stream. Host-agnostic and reused by
+/// other providers; returns an empty Stream when nothing was found. Must run
+/// off the UI thread.
+Stream resolveEmbedSync(const std::string& serverName, const std::string& url);
+
 // --- Synchronous cores (run these off the UI thread) ----------------------
 // Exposed for reuse/testing; the async wrappers above call into them.
 

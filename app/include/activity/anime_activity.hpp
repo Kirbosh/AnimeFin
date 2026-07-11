@@ -31,11 +31,17 @@ private:
     std::vector<jk::AnimeCard> list;
 };
 
+/// Open a source picker (JKAnime / AnimeFLV) and run `onPick` after switching.
+void showSourcePicker(brls::View* owner, const std::function<void()>& onPick);
+
 /// Homepage "Animes recientes" grid.
 class AnimeRecentTab : public RecyclingGrid {
 public:
     AnimeRecentTab();
     static brls::View* create();
+
+private:
+    void load();
 };
 
 /// Full catalogue, paginated as the user scrolls.
@@ -45,6 +51,7 @@ public:
     static brls::View* create();
 
 private:
+    void reload();
     void loadPage();
     int page = 1;
     bool finished = false;
@@ -60,6 +67,7 @@ private:
     void doSearch(const std::string& query);
     RecyclingGrid* grid;
     brls::Label* hint;
+    std::string lastQuery;
 };
 
 /// Bridge back to the stock Switchfin Jellyfin experience.
