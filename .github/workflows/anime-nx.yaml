@@ -1,0 +1,64 @@
+name: anime-nx
+
+# Builds the Nintendo Switch .nro for the AnimeFin feature branch and uploads it
+# as a downloadable artifact. Mirrors the upstream build-nx job (both the OpenGL
+# and deko3d drivers) so it stays on the proven toolchain recipe. Runs on every
+# push to the branch and can also be started manually from the Actions tab.
+
+on:
+  push:
+    branches: [ claude/ripjkanimenx-poster-player-siuuw8 ]
+    paths-ignore:
+    - README.md
+    - CHANGELOG.md
+    - images/**
+  workflow_dispatch:
+
+jobs:
+  build-nx:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - { driver: opengl }
+        - { driver: deko3d, cmake: "-DUSE_DEKO3D=ON", shuffix: "-deko3d" }
+        driver: [ opengl, deko3d ]
+    container:
+      image: devkitpro/devkita64:20260219
+    env:
+      BASE_URL: https://github.com/dragonflylee/switchfin/releases/download/switch-portlibs
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    - name: Update deko3d dependencies
+      if: ${{ matrix.driver == 'deko3d' }}
+      run: |
+        dkp-pacman --noconfirm -R switch-libmpv
+        dkp-pacman --noconfirm -U $BASE_URL/libuam-master-1-any.pkg.tar.zst
+    - name: Update dependencies
+      run: |
+        dkp-pacman --noconfirm -U $BASE_URL/hacBrewPack-3.05-1-x86_64.pkg.tar.zst
+        for pkg in mbedtls-3.6.5-1 libssh2-1.11.1-1 dav1d-1.5.3-1 curl-8.16.0-2 ffmpeg-7.1.5-5 libmpv${{ matrix.shuffix }}-0.36.0-5 nspmini-main-1; do
+          dkp-pacman --noconfirm -U $BASE_URL/switch-${pkg}-any.pkg.tar.zst
+        done
+        git config --system --add safe.directory $GITHUB_WORKSPACE
+    - name: Build libusbhsfs
+      run: |
+        git clone https://github.com/DarkMatterCore/libusbhsfs.git --depth=1
+        make -C libusbhsfs BUILD_TYPE=GPL install -j$(nproc)
+    - name: Build nro
+      run: |
+        cmake -B build ${{ matrix.cmake }} \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DPLATFORM_SWITCH=ON \
+          -DUSE_LIBUSBHSFS=ON \
+          -DBUILTIN_NSP=ON \
+          -DVERSION_BUILD=${{ github.run_number }}
+        make -C build Switchfin.nro -j$(nproc)
+    - name: Upload nro
+      uses: actions/upload-artifact@v6
+      with:
+        name: AnimeFin-NintendoSwitch${{ matrix.shuffix }}-${{ github.run_number }}
+        path: build/Switchfin.nro
