@@ -3,7 +3,10 @@
 
 namespace provider {
 
-static Source current = Source::JK;
+// AnimeFLV is the default browse source: larger catalogue, JSON-embedded
+// episode/server data (more robust to scrape) and explicit SUB/LAT labelling.
+// JKAnime stays one button away (BUTTON_X) as a fallback.
+static Source current = Source::FLV;
 
 Source active() { return current; }
 void setActive(Source s) { current = s; }
