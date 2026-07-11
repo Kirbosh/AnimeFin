@@ -85,8 +85,10 @@ using OnError = std::function<void(const std::string&)>;
 /// Homepage "Animes recientes" strip: the latest released episodes.
 void getRecent(std::function<void(std::vector<AnimeCard>)> then, OnError error);
 
-/// Paginated full catalogue via /directorio?p=N. `page` is 1-based.
-void getDirectory(int page, std::function<void(std::vector<AnimeCard>)> then, OnError error);
+/// Paginated full catalogue via /directorio?p=N. `page` is 1-based. `order` is
+/// accepted for a uniform provider interface but jkanime has no sort param.
+void getDirectory(int page, std::function<void(std::vector<AnimeCard>)> then, OnError error,
+    const std::string& order = "default");
 
 /// Free-text search via /buscar/<query>.
 void search(const std::string& query, std::function<void(std::vector<AnimeCard>)> then, OnError error);

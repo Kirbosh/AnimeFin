@@ -721,7 +721,7 @@ void getRecent(std::function<void(std::vector<AnimeCard>)> then, OnError error) 
     });
 }
 
-void getDirectory(int page, std::function<void(std::vector<AnimeCard>)> then, OnError error) {
+void getDirectory(int page, std::function<void(std::vector<AnimeCard>)> then, OnError error, const std::string&) {
     brls::async([page, then, error]() {
         try {
             std::string html = httpGet(HOST + "directorio?p=" + std::to_string(page));

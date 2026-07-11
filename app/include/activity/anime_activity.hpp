@@ -53,8 +53,10 @@ public:
 private:
     void reload();
     void loadPage();
+    void pickSort();
     int page = 1;
     bool finished = false;
+    std::string order = "default";
 };
 
 /// Search box + results grid.
@@ -70,10 +72,11 @@ private:
     std::string lastQuery;
 };
 
-/// Bridge back to the stock Switchfin Jellyfin experience.
-class AnimeJellyfinTab : public brls::Box {
+/// Minimal, self-contained settings/info tab (source default, controls, log
+/// path). Replaces the Jellyfin-dependent SettingTab, which crashed here.
+class AnimeSettingsTab : public brls::Box {
 public:
-    AnimeJellyfinTab();
+    AnimeSettingsTab();
     static brls::View* create();
 };
 

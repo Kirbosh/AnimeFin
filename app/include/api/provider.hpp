@@ -28,7 +28,11 @@ const std::vector<std::string>& names();
 
 // Browse — uses the active source.
 void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
-void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
+void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error,
+    const std::string& order = "default");
+
+/// Sort options supported by the active source (empty when it can't sort).
+const std::vector<std::pair<std::string, std::string>>& sortOptions();
 void search(const std::string& query, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
 
 // Detail / playback — routed by the item's own URL host.

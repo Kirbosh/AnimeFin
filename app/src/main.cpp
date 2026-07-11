@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
     brls::Application::registerXMLView("AnimeRecentTab", AnimeRecentTab::create);
     brls::Application::registerXMLView("AnimeDirectoryTab", AnimeDirectoryTab::create);
     brls::Application::registerXMLView("AnimeSearchTab", AnimeSearchTab::create);
-    brls::Application::registerXMLView("AnimeJellyfinTab", AnimeJellyfinTab::create);
+    brls::Application::registerXMLView("AnimeSettingsTab", AnimeSettingsTab::create);
 
     if (!brls::Application::getPlatform()->isApplicationMode()) {
         brls::Application::pushActivity(new HintActivity());

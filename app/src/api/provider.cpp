@@ -23,11 +23,24 @@ void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError
         jk::getRecent(then, error);
 }
 
-void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
+void getDirectory(
+    int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error, const std::string& order) {
     if (current == Source::FLV)
-        flv::getDirectory(page, then, error);
+        flv::getDirectory(page, then, error, order);
     else
-        jk::getDirectory(page, then, error);
+        jk::getDirectory(page, then, error, order);
+}
+
+const std::vector<std::pair<std::string, std::string>>& sortOptions() {
+    // pair = { AnimeFLV order value, i18n key }
+    static const std::vector<std::pair<std::string, std::string>> flvSort = {
+        {"default", "anime/sort_default"},
+        {"updated", "anime/sort_recent"},
+        {"title", "anime/sort_title"},
+        {"rating", "anime/sort_rating"},
+    };
+    static const std::vector<std::pair<std::string, std::string>> none = {};
+    return current == Source::FLV ? flvSort : none;
 }
 
 void search(const std::string& query, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {

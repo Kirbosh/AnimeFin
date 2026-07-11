@@ -26,8 +26,16 @@ static const std::string USER_AGENT =
 namespace {
 
 HTTP::Header headers() {
-    return {"User-Agent: " + USER_AGENT, "Referer: " + HOST,
-        "X-Requested-With: XMLHttpRequest"};
+    // Look like a real browser *navigation*. Crucially do NOT send
+    // X-Requested-With: AnimeFLV withholds the server-side `var videos = {...}`
+    // list from requests that look like XHR/scrapers, which is why episodes
+    // came back with an empty video list.
+    return {
+        "User-Agent: " + USER_AGENT,
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language: es-ES,es;q=0.9,en;q=0.8",
+        "Referer: " + HOST,
+    };
 }
 
 std::string httpGet(const std::string& url) {
@@ -106,6 +114,23 @@ std::string coverFor(const std::string& id) {
     return "https://www3.animeflv.net/uploads/animes/covers/" + id + ".jpg";
 }
 
+/// Recent items carry a wide episode thumbnail; turn it into the portrait cover
+/// so the poster grid isn't cropped. Falls back to the thumbnail if unknown.
+std::string coverFromThumb(const std::string& thumb) {
+    size_t sp = thumb.find("/screenshots/");
+    if (sp != std::string::npos) {
+        size_t a = sp + 13;
+        size_t b = thumb.find('/', a);
+        if (b != std::string::npos) return coverFor(thumb.substr(a, b - a));
+    }
+    if (thumb.find("/thumbs/") != std::string::npos) {
+        std::string r = thumb;
+        replaceAll(r, "/thumbs/", "/covers/");
+        return r;
+    }
+    return thumb;
+}
+
 }  // namespace
 
 std::string slugOf(const std::string& url) {
@@ -144,7 +169,7 @@ std::vector<jk::AnimeCard> parseRecent(const std::string& html) {
         jk::AnimeCard c;
         c.slug = slugOf("/ver/" + verPath);
         c.url = HOST + "anime/" + c.slug;
-        c.poster = toAbs(between(piece, "src=\"", "\""));
+        c.poster = coverFromThumb(toAbs(between(piece, "src=\"", "\"")));
         std::string title = decode(between(piece, "Title\">", "<"));
         c.title = title.empty() ? c.slug : title;
         c.extra = decode(between(piece, "Capi\">", "<"));
@@ -275,10 +300,11 @@ void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError
     });
 }
 
-void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
-    brls::async([page, then, error]() {
+void getDirectory(
+    int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error, const std::string& order) {
+    brls::async([page, order, then, error]() {
         try {
-            std::string url = HOST + "browse?order=default&page=" + std::to_string(page);
+            std::string url = HOST + "browse?order=" + order + "&page=" + std::to_string(page);
             std::string html = httpGet(url);
             auto r = parseBrowse(html);
             diag::log("flv directory p" + std::to_string(page) + ": " + std::to_string(r.size()) + " cards");

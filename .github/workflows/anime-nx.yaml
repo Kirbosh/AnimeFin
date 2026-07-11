@@ -17,13 +17,6 @@ on:
 jobs:
   build-nx:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - { driver: opengl }
-        - { driver: deko3d, cmake: "-DUSE_DEKO3D=ON", shuffix: "-deko3d" }
-        driver: [ opengl, deko3d ]
     container:
       image: devkitpro/devkita64:20260219
     env:
@@ -32,15 +25,12 @@ jobs:
     - uses: actions/checkout@v6
       with:
         submodules: recursive
-    - name: Update deko3d dependencies
-      if: ${{ matrix.driver == 'deko3d' }}
+    - name: Update dependencies (deko3d driver)
       run: |
         dkp-pacman --noconfirm -R switch-libmpv
         dkp-pacman --noconfirm -U $BASE_URL/libuam-master-1-any.pkg.tar.zst
-    - name: Update dependencies
-      run: |
         dkp-pacman --noconfirm -U $BASE_URL/hacBrewPack-3.05-1-x86_64.pkg.tar.zst
-        for pkg in mbedtls-3.6.5-1 libssh2-1.11.1-1 dav1d-1.5.3-1 curl-8.16.0-2 ffmpeg-7.1.5-5 libmpv${{ matrix.shuffix }}-0.36.0-5 nspmini-main-1; do
+        for pkg in mbedtls-3.6.5-1 libssh2-1.11.1-1 dav1d-1.5.3-1 curl-8.16.0-2 ffmpeg-7.1.5-5 libmpv-deko3d-0.36.0-5 nspmini-main-1; do
           dkp-pacman --noconfirm -U $BASE_URL/switch-${pkg}-any.pkg.tar.zst
         done
         git config --system --add safe.directory $GITHUB_WORKSPACE
@@ -50,35 +40,33 @@ jobs:
         make -C libusbhsfs BUILD_TYPE=GPL install -j$(nproc)
     - name: Build nro
       run: |
-        cmake -B build ${{ matrix.cmake }} \
+        cmake -B build -DUSE_DEKO3D=ON \
           -DCMAKE_BUILD_TYPE=Release \
           -DPLATFORM_SWITCH=ON \
           -DUSE_LIBUSBHSFS=ON \
           -DBUILTIN_NSP=ON \
           -DVERSION_BUILD=${{ github.run_number }}
         make -C build Switchfin.nro -j$(nproc)
-    - name: Rename nro for release
-      run: cp build/Switchfin.nro AnimeFin-${{ matrix.driver }}.nro
+        cp build/Switchfin.nro AnimeFin.nro
     - name: Upload nro
       uses: actions/upload-artifact@v6
       with:
-        name: AnimeFin-NintendoSwitch${{ matrix.shuffix }}-${{ github.run_number }}
-        path: AnimeFin-${{ matrix.driver }}.nro
+        name: AnimeFin-NintendoSwitch-${{ github.run_number }}
+        path: AnimeFin.nro
 
-  # Publish the built .nro files to a rolling pre-release so they show up under
-  # "Releases" with a permanent, no-login download link (easier than digging the
-  # Actions artifacts out, and it works on mobile).
+  # Publish the .nro to a rolling pre-release so it shows up under "Releases"
+  # with a permanent, no-login download link that works on mobile.
   release:
     needs: build-nx
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-    - name: Download built nros
+    - name: Download built nro
       uses: actions/download-artifact@v6
       with:
         path: dist
-    - name: Collect nros
+    - name: Collect nro
       run: |
         mkdir -p out
         find dist -name '*.nro' -exec cp {} out/ \;
@@ -89,14 +77,12 @@ jobs:
         tag_name: anime-latest
         name: AnimeFin — latest build
         body: |
-          Automated build of the `claude/ripjkanimenx-poster-player-siuuw8` branch.
+          Automated build of the `claude/ripjkanimenx-poster-player-siuuw8` branch (deko3d).
 
-          - **AnimeFin-deko3d.nro** — recommended (best performance)
-          - **AnimeFin-opengl.nro** — fallback if deko3d has display issues
-
-          Copy the `.nro` to `/switch/` on your SD card and launch it from the hbmenu.
-          Opens into AnimeFLV; press **X** to switch to JKAnime. If anything breaks,
-          send `sdmc:/switch/Switchfin/anime_diag.log` (and any `diag_*.txt`).
+          Copy **AnimeFin.nro** to `/switch/` on your SD card and launch it from the hbmenu.
+          Opens into AnimeFLV; press **X** to switch source, **Y** to sort/search.
+          If anything breaks, send `sdmc:/switch/Switchfin/anime_diag.log`
+          (and any `diag_*.txt`).
 
           Built from commit ${{ github.sha }} (run ${{ github.run_number }}).
         prerelease: true

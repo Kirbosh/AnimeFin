@@ -31,10 +31,16 @@ public:
 
 private:
     void load();
+    /// Show one 100-episode block of the list (paginates long series).
+    void showEpisodeBlock(int block);
+    /// Open a range picker when the series has more than one block.
+    void pickEpisodeBlock();
 
     jk::AnimeCard card;
     jk::AnimeDetail detail;
     bool loaded = false;
+    int episodeBlock = 0;
+    static constexpr int EPISODES_PER_BLOCK = 100;
     // ASYNC_RETAIN is View-only; this Activity guards its async callbacks with
     // a liveness flag instead. Callbacks fire on the UI thread (via brls::sync),
     // same thread as the destructor, so a plain check is race-free.
@@ -48,5 +54,6 @@ private:
     BRLS_BIND(brls::Label, labelNext, "anime/label/next");
     BRLS_BIND(TextBox, labelOverview, "anime/label/overview");
     BRLS_BIND(brls::Box, btnPlay, "anime/play");
+    BRLS_BIND(brls::Header, labelEpisodes, "anime/label/episodes");
     BRLS_BIND(RecyclingGrid, episodes, "anime/episodes");
 };

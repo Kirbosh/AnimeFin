@@ -113,10 +113,33 @@ AnimeDirectoryTab::AnimeDirectoryTab() {
     this->estimatedRowHeight = 300;
     this->spanCount = 6;
     this->registerAction("anime/source"_i18n, brls::BUTTON_X,
-        [this](brls::View*) { showSourcePicker(this, [this]() { this->reload(); }); return true; });
+        [this](brls::View*) { showSourcePicker(this, [this]() { this->order = "default"; this->reload(); }); return true; });
+    this->registerAction("anime/sort"_i18n, brls::BUTTON_Y,
+        [this](brls::View*) { this->pickSort(); return true; });
 
     this->onNextPage([this]() { this->loadPage(); });
     this->reload();
+}
+
+void AnimeDirectoryTab::pickSort() {
+    const auto& opts = provider::sortOptions();
+    if (opts.empty()) return;  // active source can't sort
+    std::vector<std::string> labels;
+    int current = 0;
+    for (size_t i = 0; i < opts.size(); i++) {
+        labels.push_back(brls::getStr(opts[i].second));
+        if (opts[i].first == this->order) current = (int)i;
+    }
+    brls::Dropdown* d = new brls::Dropdown(
+        "anime/sort"_i18n, labels,
+        [this, opts](int selected) {
+            if (selected >= 0 && selected < (int)opts.size()) {
+                this->order = opts[selected].first;
+                this->reload();
+            }
+        },
+        current);
+    brls::Application::pushActivity(new brls::Activity(d));
 }
 
 void AnimeDirectoryTab::reload() {
@@ -154,7 +177,8 @@ void AnimeDirectoryTab::loadPage() {
         [ASYNC_TOKEN](const std::string& ex) {
             ASYNC_RELEASE
             if (this->page == 1) this->setError(ex + "\n" + diag::logPath());
-        });
+        },
+        this->order);
 }
 
 brls::View* AnimeDirectoryTab::create() { return new AnimeDirectoryTab(); }
@@ -221,30 +245,58 @@ void AnimeSearchTab::doSearch(const std::string& query) {
 
 brls::View* AnimeSearchTab::create() { return new AnimeSearchTab(); }
 
-// ---------------------------------------------------------- AnimeJellyfinTab
+// ---------------------------------------------------------- AnimeSettingsTab
 
-AnimeJellyfinTab::AnimeJellyfinTab() {
+AnimeSettingsTab::AnimeSettingsTab() {
     this->setGrow(1.f);
     this->setAxis(brls::Axis::COLUMN);
     this->setJustifyContent(brls::JustifyContent::CENTER);
     this->setAlignItems(brls::AlignItems::CENTER);
+    this->setPadding(40, 60, 40, 60);
 
-    auto* label = new brls::Label();
-    label->setText("anime/jellyfin_hint"_i18n);
-    label->setFontSize(18);
-    label->setMargins(0, 0, 20, 0);
-    this->addView(label);
+    auto* title = new brls::Label();
+    title->setText("AnimeFin");
+    title->setFontSize(30);
+    title->setMargins(0, 0, 6, 0);
+    this->addView(title);
 
-    auto* btn = new brls::Button();
-    btn->setText("anime/jellyfin_open"_i18n);
-    btn->registerClickAction([](brls::View*) {
-        brls::Application::pushActivity(new ServerList());
+    auto* ver = new brls::Label();
+    ver->setText(fmt::format("v{}", AppVersion::getVersion()));
+    ver->setFontSize(14);
+    ver->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
+    ver->setMargins(0, 0, 24, 0);
+    this->addView(ver);
+
+    // Source selector — changes which site the browse tabs query by default.
+    auto* srcBtn = new brls::Button();
+    auto srcText = [](brls::Button* b) {
+        b->setText(fmt::format("{}: {}", "anime/source"_i18n,
+            provider::names().at(static_cast<size_t>(provider::active()))));
+    };
+    srcText(srcBtn);
+    srcBtn->registerClickAction([srcBtn, srcText](brls::View*) {
+        showSourcePicker(srcBtn, [srcBtn, srcText]() { srcText(srcBtn); });
         return true;
     });
-    this->addView(btn);
+    srcBtn->setMargins(0, 0, 24, 0);
+    this->addView(srcBtn);
+
+    auto* controls = new brls::Label();
+    controls->setText("X · Fuente / Source     Y · Buscar / Search     B · Atrás / Back");
+    controls->setFontSize(15);
+    controls->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
+    controls->setMargins(0, 0, 16, 0);
+    this->addView(controls);
+
+    // Where to find the diagnostics log (for reporting issues).
+    auto* logHint = new brls::Label();
+    logHint->setText(diag::logPath());
+    logHint->setFontSize(12);
+    logHint->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
+    this->addView(logHint);
 }
 
-brls::View* AnimeJellyfinTab::create() { return new AnimeJellyfinTab(); }
+brls::View* AnimeSettingsTab::create() { return new AnimeSettingsTab(); }
 
 // ------------------------------------------------------------- AnimeActivity
 

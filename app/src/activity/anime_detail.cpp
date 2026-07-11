@@ -16,6 +16,8 @@
 #include "utils/image.hpp"
 #include "utils/dialog.hpp"
 
+#include <algorithm>
+
 using namespace brls::literals;
 
 // Browser headers (UA + host-matched referer) so each source's CDN serves the
@@ -189,13 +191,56 @@ void AnimeDetail::load() {
             if (d.episodes.empty()) {
                 this->episodes->setEmpty();
             } else {
-                this->episodes->setDataSource(new EpisodeSource(d.episodes, d.poster));
+                this->showEpisodeBlock(0);
+                // Long series (One Piece, ...) get a range picker on X.
+                if ((int)d.episodes.size() > EPISODES_PER_BLOCK) {
+                    this->episodes->registerAction("anime/range"_i18n, brls::BUTTON_X,
+                        [this](brls::View*) {
+                            this->pickEpisodeBlock();
+                            return true;
+                        });
+                }
             }
         },
         [this, alive](const std::string& ex) {
             if (!alive->load()) return;
             this->episodes->setError(ex + "\n" + diag::logPath());
         });
+}
+
+void AnimeDetail::showEpisodeBlock(int block) {
+    int total = static_cast<int>(this->detail.episodes.size());
+    if (total == 0) return;
+    int start = block * EPISODES_PER_BLOCK;
+    if (start < 0 || start >= total) {
+        block = 0;
+        start = 0;
+    }
+    int end = std::min(start + EPISODES_PER_BLOCK, total);
+    this->episodeBlock = block;
+
+    std::vector<jk::Episode> slice(this->detail.episodes.begin() + start, this->detail.episodes.begin() + end);
+    this->episodes->setDataSource(new EpisodeSource(std::move(slice), this->detail.poster));
+
+    if (total > EPISODES_PER_BLOCK) {
+        this->labelEpisodes->setTitle(fmt::format("{} {} - {}", "anime/episodes"_i18n,
+            this->detail.episodes[start].number, this->detail.episodes[end - 1].number));
+    }
+}
+
+void AnimeDetail::pickEpisodeBlock() {
+    int total = static_cast<int>(this->detail.episodes.size());
+    int blocks = (total + EPISODES_PER_BLOCK - 1) / EPISODES_PER_BLOCK;
+    std::vector<std::string> labels;
+    for (int b = 0; b < blocks; b++) {
+        int s = b * EPISODES_PER_BLOCK;
+        int e = std::min(s + EPISODES_PER_BLOCK, total) - 1;
+        labels.push_back(
+            fmt::format("{} - {}", this->detail.episodes[s].number, this->detail.episodes[e].number));
+    }
+    brls::Dropdown* d = new brls::Dropdown(
+        "anime/range"_i18n, labels, [this](int selected) { this->showEpisodeBlock(selected); }, this->episodeBlock);
+    brls::Application::pushActivity(new brls::Activity(d));
 }
 
 void AnimeDetail::playEpisode(const jk::Episode& ep) {
