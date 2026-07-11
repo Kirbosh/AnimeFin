@@ -57,8 +57,47 @@ jobs:
           -DBUILTIN_NSP=ON \
           -DVERSION_BUILD=${{ github.run_number }}
         make -C build Switchfin.nro -j$(nproc)
+    - name: Rename nro for release
+      run: cp build/Switchfin.nro AnimeFin-${{ matrix.driver }}.nro
     - name: Upload nro
       uses: actions/upload-artifact@v6
       with:
         name: AnimeFin-NintendoSwitch${{ matrix.shuffix }}-${{ github.run_number }}
-        path: build/Switchfin.nro
+        path: AnimeFin-${{ matrix.driver }}.nro
+
+  # Publish the built .nro files to a rolling pre-release so they show up under
+  # "Releases" with a permanent, no-login download link (easier than digging the
+  # Actions artifacts out, and it works on mobile).
+  release:
+    needs: build-nx
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download built nros
+      uses: actions/download-artifact@v6
+      with:
+        path: dist
+    - name: Collect nros
+      run: |
+        mkdir -p out
+        find dist -name '*.nro' -exec cp {} out/ \;
+        ls -l out
+    - name: Publish rolling pre-release
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: anime-latest
+        name: AnimeFin — latest build
+        body: |
+          Automated build of the `claude/ripjkanimenx-poster-player-siuuw8` branch.
+
+          - **AnimeFin-deko3d.nro** — recommended (best performance)
+          - **AnimeFin-opengl.nro** — fallback if deko3d has display issues
+
+          Copy the `.nro` to `/switch/` on your SD card and launch it from the hbmenu.
+          Opens into AnimeFLV; press **X** to switch to JKAnime. If anything breaks,
+          send `sdmc:/switch/Switchfin/anime_diag.log` (and any `diag_*.txt`).
+
+          Built from commit ${{ github.sha }} (run ${{ github.run_number }}).
+        prerelease: true
+        files: out/*.nro
