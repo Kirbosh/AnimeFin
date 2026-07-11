@@ -1,0 +1,16 @@
+{
+  "recent": "Recientes",
+  "directory": "Directorio",
+  "search": "Buscar",
+  "search_hint": "Presiona Y para buscar un anime",
+  "search_empty": "Sin resultados",
+  "episodes": "Episodios",
+  "play_first": "Ver episodio 1",
+  "next": "Próximo episodio:",
+  "no_synopsis": "Sin sinopsis disponible.",
+  "no_servers": "No hay servidores disponibles para este episodio.",
+  "choose_server": "Elige un servidor",
+  "resolve_failed": "No se pudo resolver este servidor, prueba con otro.",
+  "jellyfin_hint": "Cambiar al cliente de Jellyfin",
+  "jellyfin_open": "Abrir Jellyfin"
+}

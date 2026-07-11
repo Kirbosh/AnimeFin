@@ -244,6 +244,12 @@ void HTTP::_get(const std::string& url, std::ostream* out) {
 
 bool HTTP::getinfo(char** arg) { return curl_easy_getinfo(this->easy, CURLINFO_CONTENT_TYPE, arg) == CURLE_OK; }
 
+std::string HTTP::effective_url() {
+    char* url = nullptr;
+    if (curl_easy_getinfo(this->easy, CURLINFO_EFFECTIVE_URL, &url) == CURLE_OK && url != nullptr) return url;
+    return "";
+}
+
 int HTTP::propfind(const std::string& url, std::ostream* out) {
     curl_easy_setopt(this->easy, CURLOPT_URL, url.c_str());
     curl_easy_setopt(this->easy, CURLOPT_CUSTOMREQUEST, "PROPFIND");

@@ -1,0 +1,128 @@
+<brls:AppletFrame
+    headerHidden="true"
+    footerHidden="false">
+
+    <brls:Box
+        axis="column"
+        width="100%"
+        height="100%">
+
+        <brls:ScrollingFrame
+            grow="1.0"
+            scrollingBehavior="centered">
+
+            <brls:Box
+                axis="column"
+                paddingBottom="@style/main/content_padding_top_bottom">
+
+                <brls:Box
+                    marginTop="30"
+                    paddingLeft="@style/main/content_padding_sides"
+                    paddingRight="@style/main/content_padding_sides">
+
+                    <brls:Box
+                        width="220"
+                        axis="column"
+                        marginRight="34">
+                        <brls:Image
+                            id="anime/image/poster"
+                            height="330"
+                            scalingType="fill"
+                            cornerRadius="10"
+                            backgroundColor="@theme/color/grey_1"
+                            image="@res/img/video-card-bg.png" />
+                    </brls:Box>
+
+                    <brls:Box
+                        id="anime/content/info"
+                        axis="column"
+                        grow="1.0">
+
+                        <brls:Label
+                            id="anime/label/title"
+                            fontSize="38"
+                            marginBottom="14" />
+
+                        <brls:Box
+                            alignItems="center"
+                            marginBottom="14">
+                            <brls:Box
+                                cornerRadius="14"
+                                height="28"
+                                alignItems="center"
+                                paddingLeft="12"
+                                paddingRight="12"
+                                marginRight="8"
+                                backgroundColor="@theme/color/pill">
+                                <brls:Label
+                                    id="anime/label/status"
+                                    singleLine="true"
+                                    fontSize="14" />
+                            </brls:Box>
+                            <brls:Box
+                                cornerRadius="14"
+                                height="28"
+                                alignItems="center"
+                                paddingLeft="12"
+                                paddingRight="12"
+                                backgroundColor="@theme/color/pill">
+                                <brls:Label
+                                    id="anime/label/type"
+                                    singleLine="true"
+                                    fontSize="14" />
+                            </brls:Box>
+                        </brls:Box>
+
+                        <brls:Label
+                            id="anime/label/genres"
+                            fontSize="14"
+                            animated="false"
+                            textColor="@theme/font/grey"
+                            marginBottom="8" />
+
+                        <brls:Label
+                            id="anime/label/next"
+                            fontSize="14"
+                            animated="false"
+                            textColor="@theme/color/app"
+                            marginBottom="16" />
+
+                        <brls:Box
+                            axis="row"
+                            marginBottom="18">
+                            <IconButton
+                                id="anime/play"
+                                icon="@res/icon/ico-play-dark.svg"
+                                text="@i18n/anime/play_first"
+                                buttonStyle="primary" />
+                        </brls:Box>
+
+                        <TextBox
+                            id="anime/label/overview"
+                            fontSize="15"
+                            textColor="@theme/font/grey" />
+
+                    </brls:Box>
+                </brls:Box>
+
+                <brls:Header
+                    marginTop="28"
+                    marginBottom="6"
+                    marginLeft="@style/main/content_padding_sides"
+                    marginRight="@style/main/content_padding_sides"
+                    id="anime/label/episodes"
+                    title="@i18n/anime/episodes" />
+
+                <RecyclingGrid
+                    id="anime/episodes"
+                    height="520"
+                    paddingLeft="@style/main/content_padding_sides"
+                    paddingRight="@style/main/content_padding_sides" />
+
+            </brls:Box>
+
+        </brls:ScrollingFrame>
+
+    </brls:Box>
+
+</brls:AppletFrame>

@@ -25,6 +25,7 @@
 #include "activity/main_activity.hpp"
 #include "activity/server_list.hpp"
 #include "activity/hint_activity.hpp"
+#include "activity/anime_activity.hpp"
 #include "tab/server_add.hpp"
 #include "tab/home_tab.hpp"
 #include "tab/media_folder.hpp"
@@ -104,15 +105,19 @@ int main(int argc, char* argv[]) {
     brls::Application::registerXMLView("SearchTab", SearchTab::create);
     brls::Application::registerXMLView("RemoteTab", RemoteTab::create);
     brls::Application::registerXMLView("SettingTab", SettingTab::create);
+    brls::Application::registerXMLView("AnimeRecentTab", AnimeRecentTab::create);
+    brls::Application::registerXMLView("AnimeDirectoryTab", AnimeDirectoryTab::create);
+    brls::Application::registerXMLView("AnimeSearchTab", AnimeSearchTab::create);
+    brls::Application::registerXMLView("AnimeJellyfinTab", AnimeJellyfinTab::create);
 
     if (!brls::Application::getPlatform()->isApplicationMode()) {
         brls::Application::pushActivity(new HintActivity());
     } else if (items.size() > 0) {
         RemoteView::play(items.front());
-    } else if (!conf.checkLogin()) {
-        brls::Application::pushActivity(new ServerList());
     } else {
-        brls::Application::pushActivity(new MainActivity());
+        // AnimeFin boots straight into the JKAnime browser; the Jellyfin flows
+        // (server list / main activity) remain reachable from its last tab.
+        brls::Application::pushActivity(new AnimeActivity());
     }
 
     GA("open_app",

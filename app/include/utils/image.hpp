@@ -22,6 +22,11 @@ public:
     /// @brief 设置要加载内容的图片组件。此函数需要工作在主线程。
     static void with(brls::Image* view, const std::string& url);
 
+    /// @brief Same as with(), but sends extra request headers (User-Agent,
+    /// Referer, ...). Needed for hosts like jkanime's CDN that reject the
+    /// default client agent or gate images behind a referrer check.
+    static void with(brls::Image* view, const std::string& url, const HTTP::Header& headers);
+
     /// @brief 取消请求，并清空图片。此函数需要工作在主线程。
     static void cancel(brls::Image* view);
 
@@ -34,6 +39,7 @@ private:
     std::string url;
     brls::Image* image;
     HTTP::Cancel isCancel;
+    HTTP::Header headers;
 
     /// 对象池
     inline static std::list<Ref> pool;
