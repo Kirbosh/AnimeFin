@@ -71,6 +71,10 @@ jobs:
         mkdir -p out
         find dist -name '*.nro' -exec cp {} out/ \;
         ls -l out
+    - name: Reset rolling release (drop stale assets)
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release delete anime-latest --repo ${{ github.repository }} -y || true
     - name: Publish rolling pre-release
       uses: softprops/action-gh-release@v3
       with:
