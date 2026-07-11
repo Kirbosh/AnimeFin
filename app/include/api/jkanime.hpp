@@ -112,4 +112,19 @@ std::vector<Server> parseServers(const std::string& html);
 /// Turn a jkanime page url or slug into its catalogue key ("one-piece").
 std::string slugOf(const std::string& url);
 
+// --- Stream extraction primitives (pure, unit-tested) ---------------------
+
+/// Unpack a Dean-Edwards `eval(function(p,a,c,k,e,d){...})` payload (used by
+/// Mixdrop, StreamWish, Filemoon, Voe, ...). Returns the unpacked source, or
+/// "" if the text isn't a packed script.
+std::string unpackPacked(const std::string& source);
+
+/// Find the first direct video url (m3u8 / mp4 / `file:"..."`) in arbitrary
+/// player markup or script. Returns a scheme-qualified url, or "".
+std::string findStreamUrl(const std::string& text);
+
+/// Extract the best-quality mp4 from an ok.ru embed page's `data-options`
+/// JSON blob. Returns "" when no playable url is present.
+std::string parseOkruOptions(const std::string& html);
+
 }  // namespace jk

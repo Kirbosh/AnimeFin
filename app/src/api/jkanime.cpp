@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <regex>
 
 namespace jk {
 
@@ -405,6 +406,167 @@ std::string Stream::mpvExtra() const {
     return ss.str();
 }
 
+// ---- Dean-Edwards p.a.c.k.e.r unpacker + stream sniffing (pure) ----------
+
+namespace {
+
+/// Value of a single base-N "digit" in the packer's 0-9a-zA-Z alphabet.
+int packDigit(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'Z') return c - 'A' + 36;
+    return -1;
+}
+
+/// Decode a whole token to its keyword index (base = radix).
+long packDecode(const std::string& token, int radix) {
+    long v = 0;
+    for (char c : token) {
+        int d = packDigit(c);
+        if (d < 0 || d >= radix) return -1;
+        v = v * radix + d;
+    }
+    return v;
+}
+
+std::string originOf(const std::string& url) {
+    size_t scheme = url.find("://");
+    if (scheme == std::string::npos) return "";
+    size_t slash = url.find('/', scheme + 3);
+    return slash == std::string::npos ? url : url.substr(0, slash);
+}
+
+}  // namespace
+
+std::string unpackPacked(const std::string& source) {
+    // Locate the classic invocation tail: }('<payload>',<radix>,<count>,'<k>'.split('|')
+    size_t body = source.find("}(");
+    if (body == std::string::npos) return "";
+    size_t pStart = source.find('\'', body);
+    if (pStart == std::string::npos) return "";
+
+    // Read the payload, honouring \' and \\ escapes.
+    std::string payload;
+    size_t i = pStart + 1;
+    for (; i < source.size(); i++) {
+        char c = source[i];
+        if (c == '\\' && i + 1 < source.size()) {
+            char n = source[++i];
+            if (n == '\'' || n == '\\')
+                payload += n;
+            else {
+                payload += '\\';
+                payload += n;
+            }
+        } else if (c == '\'') {
+            break;
+        } else {
+            payload += c;
+        }
+    }
+    if (i >= source.size()) return "";
+
+    // Expect: ',<radix>,<count>,'
+    size_t p = source.find(',', i);
+    if (p == std::string::npos) return "";
+    size_t radixEnd = source.find(',', p + 1);
+    size_t countEnd = source.find(',', radixEnd + 1);
+    if (radixEnd == std::string::npos || countEnd == std::string::npos) return "";
+    int radix = atoi(trim(source.substr(p + 1, radixEnd - p - 1)).c_str());
+    if (radix < 2) radix = 62;
+
+    size_t kOpen = source.find('\'', countEnd);
+    if (kOpen == std::string::npos) return "";
+    size_t kClose = source.find('\'', kOpen + 1);
+    if (kClose == std::string::npos) return "";
+    std::vector<std::string> keywords = split(source.substr(kOpen + 1, kClose - kOpen - 1), "|");
+
+    // Replace each word token with keywords[decode(token)] when present.
+    std::string out;
+    std::string token;
+    auto flush = [&]() {
+        if (token.empty()) return;
+        long idx = packDecode(token, radix);
+        if (idx >= 0 && idx < (long)keywords.size() && !keywords[idx].empty())
+            out += keywords[idx];
+        else
+            out += token;
+        token.clear();
+    };
+    for (char c : payload) {
+        if (std::isalnum((unsigned char)c) || c == '_') {
+            token += c;
+        } else {
+            flush();
+            out += c;
+        }
+    }
+    flush();
+    return out;
+}
+
+std::string findStreamUrl(const std::string& text) {
+    auto norm = [](std::string u) {
+        if (u.rfind("//", 0) == 0) u = "https:" + u;
+        return u;
+    };
+    std::smatch m;
+    // Authoritative first: an explicit file:"..."/wurl="..." field (group 1 = url).
+    static const std::regex fieldRe(
+        R"#((?:"file"|'file'|file|"wurl"|wurl)\s*[:=]\s*["']((?:https?:)?\/\/[^"']+)["'])#");
+    if (std::regex_search(text, m, fieldRe) && m.size() > 1) return norm(m.str(1));
+
+    // Otherwise a bare HLS, then mp4 url anywhere in the markup.
+    static const std::regex bareRe[] = {
+        std::regex(R"((?:https?:)?\/\/[^"'\\\s<>]+\.m3u8[^"'\\\s<>]*)"),
+        std::regex(R"((?:https?:)?\/\/[^"'\\\s<>]+\.mp4[^"'\\\s<>]*)"),
+    };
+    for (const auto& re : bareRe)
+        if (std::regex_search(text, m, re)) return norm(m.str(0));
+    return "";
+}
+
+std::string parseOkruOptions(const std::string& html) {
+    // ok.ru embeds a `data-options="<html-entity-encoded json>"` blob whose
+    // flashvars.metadata is itself a JSON string holding the video list. The
+    // attribute's own quotes are real; every quote inside is &quot;-encoded, so
+    // the next real '"' is the true end of the value.
+    size_t s = html.find("data-options=\"");
+    if (s == std::string::npos) return "";
+    s += 14;  // strlen("data-options=\"")
+    size_t end = html.find('"', s);
+    if (end == std::string::npos) return "";
+    std::string json = html.substr(s, end - s);
+    replaceAll(json, "&quot;", "\"");
+    replaceAll(json, "&amp;", "&");
+    if (!nlohmann::json::accept(json)) return "";
+
+    nlohmann::json j = nlohmann::json::parse(json);
+    std::string meta = j.value("/flashvars/metadata"_json_pointer, std::string());
+    if (meta.empty() || !nlohmann::json::accept(meta)) return "";
+    nlohmann::json m = nlohmann::json::parse(meta);
+
+    // Rank the named qualities and keep the best url present.
+    static const std::vector<std::string> rank = {
+        "mobile", "lowest", "low", "sd", "hd", "full", "quad", "ultra"};
+    std::string best;
+    int bestRank = -1;
+    for (auto& v : m.value("videos", nlohmann::json::array())) {
+        std::string name = v.value("name", "");
+        std::string url = v.value("url", "");
+        if (url.empty()) continue;
+        int r = 0;
+        for (size_t k = 0; k < rank.size(); k++)
+            if (rank[k] == name) r = (int)k;
+        if (r >= bestRank) {
+            bestRank = r;
+            best = url;
+        }
+    }
+    if (best.rfind("//", 0) == 0) best = "https:" + best;
+    return best;
+}
+
 namespace {
 
 /// Resolve jkanime's own player (Nozomi / gsplay) to a direct file url.
@@ -437,6 +599,82 @@ Stream resolveNozomi(const std::string& embedUrl) {
                 out.referer = HOST;
                 break;
             }
+        }
+    }
+    return out;
+}
+
+/// Fetch an embed page and dig out its direct stream: try the raw markup, then
+/// the unpacked script, then follow one level of iframe. Covers the packed-JS /
+/// jwplayer-`sources` hosts (StreamWish, Filemoon, Voe, mp4upload, ...).
+Stream resolveGeneric(const std::string& embedUrl, int depth = 1) {
+    Stream out;
+    std::string page = httpGet(embedUrl);
+    if (page.empty()) return out;
+
+    std::string url = findStreamUrl(page);
+    if (url.empty()) {
+        std::string unpacked = unpackPacked(page);
+        if (!unpacked.empty()) url = findStreamUrl(unpacked);
+    }
+    if (url.empty() && depth > 0) {
+        // follow a nested iframe (jkanime's cX.php redirectors wrap the host)
+        std::string frame = scrapElement(page, "<iframe", "</iframe");
+        std::string src = scrapElement(frame, "src=\"", "\"");
+        replaceAll(src, "src=\"", "");
+        if (!src.empty()) {
+            if (src.rfind("//", 0) == 0)
+                src = "https:" + src;
+            else if (src.rfind("/", 0) == 0)
+                src = originOf(embedUrl) + src;
+            if (src != embedUrl) return resolveGeneric(src, depth - 1);
+        }
+    }
+    if (!url.empty()) {
+        out.url = url;
+        out.referer = originOf(embedUrl) + "/";
+    }
+    return out;
+}
+
+/// Mixdrop: unpack the embed's packed script and read MDCore.wurl.
+Stream resolveMixdrop(const std::string& embedUrl) {
+    Stream out;
+    std::string page = httpGet(embedUrl);
+    std::string unpacked = unpackPacked(page);
+    std::string url = findStreamUrl(unpacked.empty() ? page : unpacked);
+    if (!url.empty()) {
+        out.url = url;
+        out.referer = originOf(embedUrl) + "/";
+    }
+    return out;
+}
+
+/// ok.ru: read the metadata blob and pick the best mp4.
+Stream resolveOkru(const std::string& embedUrl) {
+    Stream out;
+    std::string page = httpGet(embedUrl);
+    std::string url = parseOkruOptions(page);
+    if (!url.empty()) {
+        out.url = url;
+        out.referer = "https://ok.ru/";
+    }
+    return out;
+}
+
+/// Fembed-style API: POST to /api/source/<id>, take the top quality.
+Stream resolveFembed(const std::string& embedUrl) {
+    Stream out;
+    std::string api = embedUrl;
+    replaceAll(api, "/v/", "/api/source/");
+    replaceAll(api, "/f/", "/api/source/");
+    std::string resp = HTTP::post(api, "", browserHeaders(), HTTP::Timeout{8000});
+    if (nlohmann::json::accept(resp)) {
+        nlohmann::json j = nlohmann::json::parse(resp);
+        auto data = j.value("data", nlohmann::json::array());
+        if (data.is_array() && !data.empty()) {
+            out.url = data.back().value("file", "");
+            out.referer = originOf(embedUrl) + "/";
         }
     }
     return out;
@@ -495,6 +733,25 @@ void getDetail(const std::string& slug, std::function<void(AnimeDetail)> then, O
         try {
             std::string html = httpGet(HOST + key + "/");
             auto d = parseDetail(key, html);
+
+            // Some titles (specials/prologues) number from 0. jkanime serves its
+            // "img/404.png" placeholder for a missing episode, so a /0/ page
+            // without it means episode 0 exists — prepend it.
+            try {
+                std::string zero = httpGet(HOST + key + "/0/");
+                if (!zero.empty() && zero.find("img/404.png") == std::string::npos) {
+                    Episode e;
+                    e.number = 0;
+                    e.url = HOST + key + "/0/";
+                    e.title = "Episodio 0";
+                    e.thumb = d.poster;
+                    d.minEpisode = 0;
+                    d.episodes.insert(d.episodes.begin(), std::move(e));
+                }
+            } catch (...) {
+                // a failed probe just means no episode 0; keep the 1..N list
+            }
+
             brls::sync([then, d]() { then(d); });
         } catch (const std::exception& ex) {
             std::string msg = ex.what();
@@ -522,18 +779,29 @@ void resolve(const Server& server, std::function<void(Stream)> then, OnError err
             Stream out;
             std::string name = server.name;
             std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+            const std::string& u = server.url;
 
-            if (name.find("nozomi") != std::string::npos || name.find("desu") != std::string::npos ||
-                server.url.find("gsplay") != std::string::npos || server.url.find("um2.php") != std::string::npos) {
-                out = resolveNozomi(server.url);
+            auto has = [&](const char* s) { return name.find(s) != std::string::npos || u.find(s) != std::string::npos; };
+
+            if (has("nozomi") || has("desu") || has("gsplay") || has("um2.php")) {
+                out = resolveNozomi(u);
+            } else if (has("okru") || has("ok.ru")) {
+                out = resolveOkru(u);
+            } else if (has("mixdrop") || has("mdfx") || has("mdbekjwqa") || has("mdy48tn97")) {
+                out = resolveMixdrop(u);
+            } else if (has("fembed") || has("/api/source/")) {
+                out = resolveFembed(u);
+            } else {
+                // StreamWish / Filemoon / Voe / mp4upload / sw and friends: sniff
+                // the embed for a packed script or a jwplayer `sources` url.
+                out = resolveGeneric(u);
             }
 
-            // Direct-ish hosts: hand mpv the embed/file url with jkanime headers.
-            // Works for hosts that expose a plain mp4/m3u8; extractor-only hosts
-            // (ok.ru, mixdrop) will simply fail to load and the user can pick
-            // another server.
+            // Last-ditch fallback: hand mpv the embed url directly. Some hosts
+            // serve a plain mp4/m3u8 there; extractor-only ones will fail to load
+            // and the user can pick another server.
             if (out.url.empty()) {
-                out.url = server.url;
+                out.url = u;
                 out.referer = HOST;
             }
 
