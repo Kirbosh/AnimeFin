@@ -198,6 +198,13 @@ std::vector<AnimeCard> parseRecent(const std::string& html) {
         AnimeCard c;
         c.url = toAbsolute(link);
         c.slug = slugOf(c.url);
+        // Skip anything that isn't a clean slug — the homepage markup has
+        // drifted and stray hrefs were producing bogus "https:" cards that then
+        // built malformed detail URLs (jkanime.net/https:/ -> 404).
+        if (c.slug.empty() || c.slug.rfind("http", 0) == 0 ||
+            !std::all_of(c.slug.begin(), c.slug.end(),
+                [](char ch) { return std::isalnum((unsigned char)ch) || ch == '-'; }))
+            continue;
         c.poster = toAbsolute(poster);
         c.title = decodeEntities(title.empty() ? titleFromSlug(c.slug) : title);
         c.extra = decodeEntities(trim(ep));
@@ -757,6 +764,13 @@ void search(const std::string& query, std::function<void(std::vector<AnimeCard>)
 
 void getDetail(const std::string& slug, std::function<void(AnimeDetail)> then, OnError error) {
     std::string key = slugOf(slug);
+    // Reject a malformed slug rather than firing jkanime.net/https:/ style 404s.
+    if (key.empty() || key.rfind("http", 0) == 0 ||
+        !std::all_of(key.begin(), key.end(), [](char ch) { return std::isalnum((unsigned char)ch) || ch == '-'; })) {
+        diag::log("jk detail: skipped invalid slug '" + key + "'");
+        if (error) error("Invalid link");
+        return;
+    }
     brls::async([key, then, error]() {
         try {
             std::string html = httpGet(HOST + key + "/");

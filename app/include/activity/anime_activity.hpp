@@ -65,10 +65,13 @@ public:
     AnimeSearchTab();
     static brls::View* create();
 
+    brls::View* getDefaultFocus() override;
+
 private:
     void doSearch(const std::string& query);
     RecyclingGrid* grid;
     brls::Label* hint;
+    brls::Button* searchBtn;
     std::string lastQuery;
 };
 

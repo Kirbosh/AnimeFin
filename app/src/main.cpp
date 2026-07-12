@@ -67,6 +67,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    // AnimeFin is a Spanish anime app: default the whole UI to Spanish instead
+    // of following the (often English) console locale.
+    brls::Platform::APP_LOCALE_DEFAULT = brls::LOCALE_ES;
+
     // Init the app and i18n
     if (!brls::Application::init()) {
         brls::Logger::error("Unable to init application");

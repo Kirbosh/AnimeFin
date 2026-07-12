@@ -188,31 +188,41 @@ brls::View* AnimeDirectoryTab::create() { return new AnimeDirectoryTab(); }
 AnimeSearchTab::AnimeSearchTab() {
     this->setGrow(1.f);
     this->setAxis(brls::Axis::COLUMN);
+    this->setPadding(20, 40, 10, 40);
+
+    auto searchAction = [this](brls::View*) {
+        diag::log("search: opening keyboard");
+        return brls::Application::getImeManager()->openForText(
+            [this](const std::string& text) {
+                diag::log("search: query='" + text + "'");
+                if (!text.empty()) this->doSearch(text);
+            },
+            "anime/search"_i18n, "", 64, "");
+    };
+
+    // A real, focusable button — the previous Label wasn't reachable with the
+    // controller, so pressing Y did nothing and search never ran.
+    this->searchBtn = new brls::Button();
+    this->searchBtn->setText("anime/search"_i18n);
+    this->searchBtn->setMarginBottom(10);
+    this->searchBtn->registerClickAction(searchAction);
+    this->addView(this->searchBtn);
 
     this->hint = new brls::Label();
     this->hint->setText("anime/search_hint"_i18n);
-    this->hint->setFontSize(16);
-    this->hint->setMargins(20, 40, 10, 40);
+    this->hint->setFontSize(15);
+    this->hint->setMarginBottom(10);
     this->addView(this->hint);
 
     this->grid = new RecyclingGrid();
     this->grid->setGrow(1.f);
-    this->grid->setPadding(10, 40, 20, 40);
     this->grid->registerCell("Cell", []() { return new MediaCardCell(); });
     this->grid->estimatedRowHeight = 300;
     this->grid->spanCount = 6;
     this->grid->setEmpty("anime/search_empty"_i18n);
     this->addView(this->grid);
 
-    auto searchAction = [this](brls::View*) {
-        return brls::Application::getImeManager()->openForText(
-            [this](const std::string& text) {
-                if (!text.empty()) this->doSearch(text);
-            },
-            "anime/search"_i18n, "", 64, "");
-    };
     this->registerAction("anime/search"_i18n, brls::BUTTON_Y, searchAction);
-    this->hint->registerClickAction(searchAction);
     this->grid->registerAction("anime/search"_i18n, brls::BUTTON_Y, searchAction);
 
     // Switch source; re-run the last query against the new source if any.
@@ -225,6 +235,8 @@ AnimeSearchTab::AnimeSearchTab() {
     this->registerAction("anime/source"_i18n, brls::BUTTON_X, sourceAction);
     this->grid->registerAction("anime/source"_i18n, brls::BUTTON_X, sourceAction);
 }
+
+brls::View* AnimeSearchTab::getDefaultFocus() { return this->searchBtn; }
 
 void AnimeSearchTab::doSearch(const std::string& query) {
     this->lastQuery = query;

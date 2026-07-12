@@ -18,7 +18,9 @@
 
 namespace flv {
 
-inline const std::string HOST = "https://www3.animeflv.net/";
+// Canonical host. The logs showed episode pages canonicalising to www4; www3
+// is an older mirror that returns an empty video list, so target www4 directly.
+inline const std::string HOST = "https://www4.animeflv.net/";
 
 // Same async shape as the jk:: fetchers; callbacks fire on the UI thread.
 void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);

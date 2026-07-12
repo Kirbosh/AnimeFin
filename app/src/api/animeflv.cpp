@@ -248,7 +248,10 @@ jk::AnimeDetail parseDetail(const std::string& slug, const std::string& html) {
         e.number = n;
         e.url = HOST + "ver/" + slug + "-" + std::to_string(n);
         e.title = "Episodio " + std::to_string(n);
-        e.thumb = d.poster;
+        // Distinct per-episode still (AnimeFLV's own screenshot); fall back to
+        // the cover when the anime id is unknown.
+        e.thumb = id.empty() ? d.poster
+                             : "https://cdn.animeflv.net/screenshots/" + id + "/" + std::to_string(n) + "/3.jpg";
         d.episodes.push_back(std::move(e));
     }
     if (!numbers.empty()) {
@@ -351,13 +354,48 @@ void getDetail(const std::string& slug, std::function<void(jk::AnimeDetail)> the
     });
 }
 
+/// Extract embed iframes from a page (used for the mobile fallback, which tends
+/// to server-render the player instead of loading it with JavaScript).
+static std::vector<jk::Server> parseIframeServers(const std::string& html) {
+    std::vector<jk::Server> out;
+    size_t pos = 0;
+    while ((pos = html.find("<iframe", pos)) != std::string::npos) {
+        std::string frag = between(html.substr(pos, 400), "src=\"", "\"");
+        pos += 7;
+        if (frag.empty()) continue;
+        std::string url = toAbs(frag);
+        if (url.rfind("http", 0) != 0) continue;
+        jk::Server sv;
+        sv.url = url;
+        size_t h = url.find("://");
+        size_t s = url.find('/', h + 3);
+        sv.name = url.substr(h + 3, (s == std::string::npos ? url.size() : s) - (h + 3));
+        out.push_back(std::move(sv));
+    }
+    return out;
+}
+
 void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk::Server>)> then, jk::OnError error) {
     brls::async([episodeUrl, then, error]() {
         try {
             std::string html = httpGet(episodeUrl);
             auto r = parseServers(html);
             diag::log("flv servers " + episodeUrl + ": " + std::to_string(r.size()) + " found");
-            if (r.empty()) diag::dump("flv_servers_empty", episodeUrl, html);
+
+            // The desktop page loads its video list with JavaScript, so it can
+            // come back empty. The mobile site server-renders embeds — try it,
+            // and always dump its HTML so we can adapt the parser if needed.
+            if (r.empty()) {
+                diag::dump("flv_servers_empty", episodeUrl, html);
+                std::string mobileUrl = episodeUrl;
+                replaceAll(mobileUrl, "www4.animeflv.net", "m.animeflv.net");
+                replaceAll(mobileUrl, "www3.animeflv.net", "m.animeflv.net");
+                std::string mhtml = httpGet(mobileUrl);
+                r = parseServers(mhtml);
+                if (r.empty()) r = parseIframeServers(mhtml);
+                diag::log("flv mobile servers " + mobileUrl + ": " + std::to_string(r.size()) + " found");
+                if (r.empty()) diag::dump("flv_mobile_empty", mobileUrl, mhtml);
+            }
             brls::sync([then, r]() { then(r); });
         } catch (const std::exception& ex) {
             std::string m = ex.what();
