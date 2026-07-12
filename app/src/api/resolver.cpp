@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
-#include <regex>
 
 namespace anime {
 
@@ -202,29 +201,70 @@ static bool isAssetUrl(const std::string& u) {
     return false;
 }
 
-std::string findStreamUrl(const std::string& text) {
-    auto norm = [](std::string u) {
-        if (u.rfind("//", 0) == 0) u = "https:" + u;
-        return u;
-    };
-    // Authoritative first: explicit file/source/wurl fields. Iterate all matches
-    // and skip static assets (a small embed page can otherwise yield a .css url).
-    static const std::regex fieldRe(
-        R"#((?:"file"|'file'|file|"wurl"|wurl|"source"|'source'|"hls"|hls|"videoUrl")\s*[:=]\s*["']((?:https?:)?\/\/[^"']+)["'])#");
-    for (std::sregex_iterator it(text.begin(), text.end(), fieldRe), end; it != end; ++it) {
-        std::string u = norm((*it).str(1));
-        if (!isAssetUrl(u)) return u;
-    }
+static std::string normUrl(std::string u) {
+    if (u.rfind("//", 0) == 0) u = "https:" + u;
+    return u;
+}
 
-    // Otherwise a bare HLS, then mp4 url anywhere in the markup.
-    std::smatch m;
-    static const std::regex bareRe[] = {
-        std::regex(R"((?:https?:)?\/\/[^"'\\\s<>]+\.m3u8[^"'\\\s<>]*)"),
-        std::regex(R"((?:https?:)?\/\/[^"'\\\s<>]+\.mp4[^"'\\\s<>]*)"),
-    };
-    for (const auto& re : bareRe)
-        if (std::regex_search(text, m, re)) return norm(m.str(0));
+/// First quoted value of a `key: "url"` / `key = "url"` field that is a real
+/// (non-asset) http(s) url. Manual scan — no std::regex, which stack-overflows
+/// on large obfuscated pages.
+static std::string fieldValue(const std::string& t, const std::string& key) {
+    size_t p = 0;
+    while ((p = t.find(key, p)) != std::string::npos) {
+        size_t i = p + key.size();
+        while (i < t.size() && (t[i] == ' ' || t[i] == '\t')) i++;
+        if (i < t.size() && (t[i] == ':' || t[i] == '=')) {
+            i++;
+            while (i < t.size() && (t[i] == ' ' || t[i] == '\t')) i++;
+            if (i < t.size() && (t[i] == '"' || t[i] == '\'')) {
+                char q = t[i++];
+                size_t s = i;
+                while (i < t.size() && t[i] != q) i++;
+                std::string v = normUrl(t.substr(s, i - s));
+                if (v.rfind("http", 0) == 0 && !isAssetUrl(v)) return v;
+            }
+        }
+        p += key.size();
+    }
     return "";
+}
+
+/// First bare url containing `ext` (.m3u8 / .mp4). Manual scan; the url start is
+/// the nearest scheme marker before the extension.
+static std::string bareMedia(const std::string& t, const std::string& ext) {
+    size_t e = 0;
+    while ((e = t.find(ext, e)) != std::string::npos) {
+        size_t h = t.rfind("http", e);
+        size_t d = t.rfind("//", e);
+        size_t start = std::string::npos;
+        if (h != std::string::npos) start = h;
+        if (d != std::string::npos && (start == std::string::npos || d > start)) start = d;
+        if (start != std::string::npos && e - start < 2000) {
+            size_t end = e + ext.size();
+            while (end < t.size()) {
+                char c = t[end];
+                if (c == '"' || c == '\'' || c == '\\' || c == ' ' || c == '\n' || c == '\r' || c == '\t' ||
+                    c == '<' || c == '>' || c == ')' || c == '(')
+                    break;
+                end++;
+            }
+            std::string v = normUrl(t.substr(start, end - start));
+            if (v.rfind("http", 0) == 0) return v;
+        }
+        e += ext.size();
+    }
+    return "";
+}
+
+std::string findStreamUrl(const std::string& text) {
+    for (const std::string key : {"file", "source", "wurl", "hls", "videoUrl", "playlist"}) {
+        std::string v = fieldValue(text, key);
+        if (!v.empty()) return v;
+    }
+    std::string v = bareMedia(text, ".m3u8");
+    if (!v.empty()) return v;
+    return bareMedia(text, ".mp4");
 }
 
 std::string parseOkruOptions(const std::string& html) {
@@ -274,10 +314,12 @@ namespace {
 std::string unpackAll(const std::string& page) {
     std::string all;
     size_t pos = 0;
-    while ((pos = page.find("}(", pos)) != std::string::npos) {
+    int blocks = 0;
+    while ((pos = page.find("}(", pos)) != std::string::npos && blocks < 40) {
         std::string seg = unpackPacked(page.substr(pos));
         if (!seg.empty()) all += seg + "\n";
         pos += 2;
+        blocks++;
     }
     return all;
 }
