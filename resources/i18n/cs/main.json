@@ -231,7 +231,7 @@
       "font_q1": "Jak nastavit vlastní písmo nebo ikonu mapy kláves",
       "font_a1": "1. Stáhněte si požadované písmo nebo písmo ikon\n2. Přejmenujte písmo na: font.ttf; Přejmenujte ikony na: icon.ttf\n3. Umístěte soubory písem do adresáře config\n4. Restartujte aplikaci",
       "font_q2": "Často kladené otázky",
-      "font_a2": "1. Switchfin upřednostňuje zobrazení vlastních písem, s vestavěnými fonty jako záložní\n2. \"Nastavení – výukový program\" poskytuje položku nabídky pro rychlé otevření konfiguračního adresáře\n3. V Linuxu používá Switchfin k otevření adresáře xdg-open. Pokud konfigurační adresář nelze správně otevřít, můžete zvážit instalaci tohoto nástroje",
+      "font_a2": "1. AnimeFin upřednostňuje zobrazení vlastních písem, s vestavěnými fonty jako záložní\n2. \"Nastavení – výukový program\" poskytuje položku nabídky pro rychlé otevření konfiguračního adresáře\n3. V Linuxu používá AnimeFin k otevření adresáře xdg-open. Pokud konfigurační adresář nelze správně otevřít, můžete zvážit instalaci tohoto nástroje",
       "font_q3": "Titulky se nezobrazily",
       "font_a3": "Vložte libovolný soubor ttf do {}/subfont.ttf"
     },
@@ -277,9 +277,9 @@
   "hints": {
     "hint1": "Vyberte hru z domovské obrazovky",
     "hint2": "Podržte klávesu \uE0E5 a kliknutím na \uE0E0 přejděte do nabídky homebrew",
-    "hint3": "V nabídce homebrew vyberte Switchfin",
-    "hint4": "Volitelné: Odeslat Switchfin NSP na domovskou obrazovku",
-    "hint_nsp": "Kliknutím na \uE0E0 odešlete Switchfin NSP na domovskou obrazovku",
+    "hint3": "V nabídce homebrew vyberte AnimeFin",
+    "hint4": "Volitelné: Odeslat AnimeFin NSP na domovskou obrazovku",
+    "hint_nsp": "Kliknutím na \uE0E0 odešlete AnimeFin NSP na domovskou obrazovku",
     "hint_confirm": "Pokud odešlete NSP na domovskou obrazovku může to vést k banu\nProsím potvrďte znovu",
     "hint_right": "Obrázky jsou z internetu a autorská práva patří společnosti Nintendo Co., Ltd"
   }

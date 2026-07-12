@@ -1,5 +1,5 @@
 /*
-    AnimeFin browse activity — recent / directory / search tabs over jkanime.
+    AnimeFin browse activity — recent / directory / search tabs over the active source.
 */
 
 #include "activity/anime_activity.hpp"
@@ -26,8 +26,8 @@ static HTTP::Header animeImageHeaders(const std::string& url) {
         size_t e = url.find('/', s + 3);
         ref = (e == std::string::npos ? url : url.substr(0, e)) + "/";
     }
-    if (ref.empty()) ref = jk::HOST;
-    return {"User-Agent: " + jk::USER_AGENT, "Referer: " + ref};
+    if (ref.empty()) ref = std::string("https://tioanime.com/");
+    return {"User-Agent: " + anime::USER_AGENT, "Referer: " + ref};
 }
 
 void showSourcePicker(brls::View* owner, const std::function<void()>& onPick) {
@@ -43,7 +43,7 @@ void showSourcePicker(brls::View* owner, const std::function<void()>& onPick) {
 
 // ------------------------------------------------------------ AnimeCardSource
 
-AnimeCardSource::AnimeCardSource(std::vector<jk::AnimeCard> list) : list(std::move(list)) {}
+AnimeCardSource::AnimeCardSource(std::vector<anime::AnimeCard> list) : list(std::move(list)) {}
 
 size_t AnimeCardSource::getItemCount() { return this->list.size(); }
 
@@ -65,7 +65,7 @@ void AnimeCardSource::onItemSelected(brls::Box* recycler, size_t index) {
     brls::Application::pushActivity(new AnimeDetail(this->list.at(index)));
 }
 
-void AnimeCardSource::appendData(const std::vector<jk::AnimeCard>& data) {
+void AnimeCardSource::appendData(const std::vector<anime::AnimeCard>& data) {
     this->list.insert(this->list.end(), data.begin(), data.end());
 }
 
@@ -88,7 +88,7 @@ void AnimeRecentTab::load() {
     this->showSkeleton();
     ASYNC_RETAIN
     provider::getRecent(
-        [ASYNC_TOKEN](std::vector<jk::AnimeCard> r) {
+        [ASYNC_TOKEN](std::vector<anime::AnimeCard> r) {
             ASYNC_RELEASE
             if (r.empty()) {
                 this->setEmpty();
@@ -156,7 +156,7 @@ void AnimeDirectoryTab::loadPage() {
     ASYNC_RETAIN
     provider::getDirectory(
         this->page,
-        [ASYNC_TOKEN](std::vector<jk::AnimeCard> r) {
+        [ASYNC_TOKEN](std::vector<anime::AnimeCard> r) {
             ASYNC_RELEASE
             if (r.empty()) {
                 this->finished = true;
@@ -245,7 +245,7 @@ void AnimeSearchTab::doSearch(const std::string& query) {
 
     provider::search(
         query,
-        [this](std::vector<jk::AnimeCard> r) {
+        [this](std::vector<anime::AnimeCard> r) {
             if (r.empty()) {
                 this->grid->setEmpty("anime/search_empty"_i18n);
             } else {

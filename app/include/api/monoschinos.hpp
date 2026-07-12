@@ -22,23 +22,23 @@
 #include <vector>
 #include <functional>
 
-#include "api/jkanime.hpp"  // shared data types + resolveEmbedSync
+#include "api/media.hpp"  // shared data types + resolveEmbed
 
 namespace mono {
 
 inline const std::string HOST = "https://wwv.monoschinos2.net/";
 
-void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
-void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error,
+void getRecent(std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error);
+void getDirectory(int page, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error,
     const std::string& order = "default");
-void search(const std::string& query, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
-void getDetail(const std::string& slug, std::function<void(jk::AnimeDetail)> then, jk::OnError error);
-void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk::Server>)> then, jk::OnError error);
-void resolve(const jk::Server& server, std::function<void(jk::Stream)> then, jk::OnError error);
+void search(const std::string& query, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error);
+void getDetail(const std::string& slug, std::function<void(anime::AnimeDetail)> then, anime::OnError error);
+void getServers(const std::string& episodeUrl, std::function<void(std::vector<anime::Server>)> then, anime::OnError error);
+void resolve(const anime::Server& server, std::function<void(anime::Stream)> then, anime::OnError error);
 
 // Pure cores, exposed for the offline test harness.
-std::vector<jk::AnimeCard> parseGrid(const std::string& html);
-std::vector<jk::Server> parsePlayers(const std::string& ajaxHtml);
+std::vector<anime::AnimeCard> parseGrid(const std::string& html);
+std::vector<anime::Server> parsePlayers(const std::string& ajaxHtml);
 std::string base64Decode(const std::string& in);
 
 /// Monoschinos anime slug from an /anime/<slug> or /ver/<slug>-... url.

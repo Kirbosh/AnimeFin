@@ -23,7 +23,7 @@ public:
     static void with(brls::Image* view, const std::string& url);
 
     /// @brief Same as with(), but sends extra request headers (User-Agent,
-    /// Referer, ...). Needed for hosts like jkanime's CDN that reject the
+    /// Referer, ...). Needed for hosts whose image CDN rejects the
     /// default client agent or gate images behind a referrer check.
     static void with(brls::Image* view, const std::string& url, const HTTP::Header& headers);
 

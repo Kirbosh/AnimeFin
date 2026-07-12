@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
         } else if (std::strcmp(argv[i], "-t") == 0) {
             MPVCore::DEBUG = true;
         } else if (std::strcmp(argv[i], "-o") == 0) {
-            const char* path = (i + 1 < argc) ? argv[++i] : "switchfin.log";
+            const char* path = (i + 1 < argc) ? argv[++i] : "animefin.log";
             brls::Logger::setLogOutput(std::fopen(path, "w+"));
         } else if (std::strcmp(argv[i], "-version") == 0) {
             brls::Logger::info("{} {}", AppVersion::getDeviceName(), AppVersion::getCommit());
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
     } else if (items.size() > 0) {
         RemoteView::play(items.front());
     } else {
-        // AnimeFin boots straight into the JKAnime browser; the Jellyfin flows
+        // AnimeFin boots straight into the anime browser; the Jellyfin flows
         // (server list / main activity) remain reachable from its last tab.
         brls::Application::pushActivity(new AnimeActivity());
     }

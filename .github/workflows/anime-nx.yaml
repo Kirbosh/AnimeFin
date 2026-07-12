@@ -46,8 +46,8 @@ jobs:
           -DUSE_LIBUSBHSFS=ON \
           -DBUILTIN_NSP=ON \
           -DVERSION_BUILD=${{ github.run_number }}
-        make -C build Switchfin.nro -j$(nproc)
-        cp build/Switchfin.nro AnimeFin.nro
+        make -C build AnimeFin.nro -j$(nproc)
+        cp build/AnimeFin.nro AnimeFin.nro
     - name: Upload nro
       uses: actions/upload-artifact@v6
       with:
@@ -84,8 +84,8 @@ jobs:
           Automated build of the `claude/ripjkanimenx-poster-player-siuuw8` branch (deko3d).
 
           Copy **AnimeFin.nro** to `/switch/` on your SD card and launch it from the hbmenu.
-          Opens into AnimeFLV; press **X** to switch source, **Y** to sort/search.
-          If anything breaks, send `sdmc:/switch/Switchfin/anime_diag.log`
+          Opens into TioAnime; press **X** to switch source, **Y** to sort/search.
+          If anything breaks, send `sdmc:/switch/AnimeFin/anime_diag.log`
           (and any `diag_*.txt`).
 
           Built from commit ${{ github.sha }} (run ${{ github.run_number }}).

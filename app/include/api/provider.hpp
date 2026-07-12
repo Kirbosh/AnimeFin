@@ -13,7 +13,7 @@
 #include <vector>
 #include <functional>
 
-#include "api/jkanime.hpp"
+#include "api/media.hpp"
 
 namespace provider {
 
@@ -27,17 +27,17 @@ void setActive(Source s);
 const std::vector<std::string>& names();
 
 // Browse — uses the active source.
-void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
-void getDirectory(int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error,
+void getRecent(std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error);
+void getDirectory(int page, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error,
     const std::string& order = "default");
 
 /// Sort options supported by the active source (empty when it can't sort).
 const std::vector<std::pair<std::string, std::string>>& sortOptions();
-void search(const std::string& query, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error);
+void search(const std::string& query, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error);
 
 // Detail / playback — routed by the item's own URL host.
-void getDetail(const jk::AnimeCard& card, std::function<void(jk::AnimeDetail)> then, jk::OnError error);
-void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk::Server>)> then, jk::OnError error);
-void resolve(const jk::Server& server, std::function<void(jk::Stream)> then, jk::OnError error);
+void getDetail(const anime::AnimeCard& card, std::function<void(anime::AnimeDetail)> then, anime::OnError error);
+void getServers(const std::string& episodeUrl, std::function<void(std::vector<anime::Server>)> then, anime::OnError error);
+void resolve(const anime::Server& server, std::function<void(anime::Stream)> then, anime::OnError error);
 
 }  // namespace provider

@@ -21,7 +21,7 @@ android {
     }
     applicationVariants.all { variant ->
         variant.outputs.each { output ->
-            output.outputFileName = "Switchfin-${output.getFilter("ABI")}.apk"
+            output.outputFileName = "AnimeFin-${output.getFilter("ABI")}.apk"
         }
     }
     signingConfigs {

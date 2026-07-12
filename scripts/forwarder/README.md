@@ -2,9 +2,9 @@
 
 bash
 ```shell
-make -C scripts/forwarder Switchfin.nacp
+make -C scripts/forwarder AnimeFin.nacp
 
-hacbrewpack -k prod.keys --titleid 010FF000FFFF0003 --titlename Switchfin --noromfs --nologo
+hacbrewpack -k prod.keys --titleid 010FF000FFFF0003 --titlename AnimeFin --noromfs --nologo
 ```
 
 # Thanks to

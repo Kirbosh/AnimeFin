@@ -1,7 +1,7 @@
 /*
     TioAnime provider for AnimeFin — see api/tioanime.hpp.
 
-    Scrapes tioanime.com. The win over AnimeFLV is that the episode page
+    Scrapes tioanime.com. Its key advantage is that the episode page
     server-renders `var videos = [["Server","embed_url"], ...]`, so the server
     list needs no XHR and can be read straight out of the HTML. The detail page
     carries `var anime_info = ["id","title","slug",...]` and `var episodes = [n,
@@ -179,8 +179,8 @@ std::string slugOf(const std::string& url) {
 
 // ------------------------------------------------------------------- parsers
 
-std::vector<jk::AnimeCard> parseRecent(const std::string& html) {
-    std::vector<jk::AnimeCard> out;
+std::vector<anime::AnimeCard> parseRecent(const std::string& html) {
+    std::vector<anime::AnimeCard> out;
     std::vector<std::string> seen;
     for (auto& piece : split(html, "href=\"/ver/")) {
         size_t end = piece.find('"');
@@ -191,7 +191,7 @@ std::vector<jk::AnimeCard> parseRecent(const std::string& html) {
         if (std::find(seen.begin(), seen.end(), slug) != seen.end()) continue;
         seen.push_back(slug);
 
-        jk::AnimeCard c;
+        anime::AnimeCard c;
         c.slug = slug;
         c.url = HOST + "anime/" + slug;
         c.poster = firstImage(piece);
@@ -206,8 +206,8 @@ std::vector<jk::AnimeCard> parseRecent(const std::string& html) {
     return out;
 }
 
-static std::vector<jk::AnimeCard> parseAnimeGrid(const std::string& html) {
-    std::vector<jk::AnimeCard> out;
+static std::vector<anime::AnimeCard> parseAnimeGrid(const std::string& html) {
+    std::vector<anime::AnimeCard> out;
     std::vector<std::string> seen;
     for (auto& piece : split(html, "href=\"/anime/")) {
         size_t end = piece.find('"');
@@ -218,7 +218,7 @@ static std::vector<jk::AnimeCard> parseAnimeGrid(const std::string& html) {
         if (std::find(seen.begin(), seen.end(), slug) != seen.end()) continue;
         seen.push_back(slug);
 
-        jk::AnimeCard c;
+        anime::AnimeCard c;
         c.slug = slug;
         c.url = HOST + "anime/" + slug;
         c.poster = firstImage(piece);
@@ -231,10 +231,10 @@ static std::vector<jk::AnimeCard> parseAnimeGrid(const std::string& html) {
     return out;
 }
 
-std::vector<jk::AnimeCard> parseDirectory(const std::string& html) { return parseAnimeGrid(html); }
+std::vector<anime::AnimeCard> parseDirectory(const std::string& html) { return parseAnimeGrid(html); }
 
-jk::AnimeDetail parseDetail(const std::string& slug, const std::string& html) {
-    jk::AnimeDetail d;
+anime::AnimeDetail parseDetail(const std::string& slug, const std::string& html) {
+    anime::AnimeDetail d;
     d.slug = slug;
 
     // var anime_info = ["id","title","slug","next_air_date?"]
@@ -307,7 +307,7 @@ jk::AnimeDetail parseDetail(const std::string& slug, const std::string& html) {
     std::string epSlug = d.slug.empty() ? slug : d.slug;
     std::string thumb = id.empty() ? d.poster : HOST + "uploads/thumbs/" + id + ".jpg";
     for (int n : numbers) {
-        jk::Episode e;
+        anime::Episode e;
         e.number = n;
         e.url = HOST + "ver/" + epSlug + "-" + std::to_string(n);
         e.title = "Episodio " + std::to_string(n);
@@ -321,8 +321,8 @@ jk::AnimeDetail parseDetail(const std::string& slug, const std::string& html) {
     return d;
 }
 
-std::vector<jk::Server> parseServers(const std::string& html) {
-    std::vector<jk::Server> out;
+std::vector<anime::Server> parseServers(const std::string& html) {
+    std::vector<anime::Server> out;
     // var videos = [["Server","https://embed..."], ...];
     std::string raw = between(html, "var videos = ", ";");
     if (raw.empty()) return out;
@@ -343,7 +343,7 @@ std::vector<jk::Server> parseServers(const std::string& html) {
             }
         }
         if (url.empty()) continue;
-        jk::Server sv;
+        anime::Server sv;
         sv.name = name.empty() ? "Servidor" : name;
         sv.url = url;
         out.push_back(std::move(sv));
@@ -353,7 +353,7 @@ std::vector<jk::Server> parseServers(const std::string& html) {
 
 // ------------------------------------------------------------- async wrappers
 
-void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
+void getRecent(std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error) {
     brls::async([then, error]() {
         try {
             std::string html = httpGet(HOST);
@@ -369,7 +369,7 @@ void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError
 }
 
 void getDirectory(
-    int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error, const std::string& order) {
+    int page, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error, const std::string& order) {
     brls::async([page, order, then, error]() {
         try {
             std::string url = HOST + "directorio?p=" + std::to_string(page);
@@ -386,7 +386,7 @@ void getDirectory(
     });
 }
 
-void search(const std::string& query, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
+void search(const std::string& query, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error) {
     std::string q = query;
     brls::async([q, then, error]() {
         try {
@@ -403,7 +403,7 @@ void search(const std::string& query, std::function<void(std::vector<jk::AnimeCa
     });
 }
 
-void getDetail(const std::string& slug, std::function<void(jk::AnimeDetail)> then, jk::OnError error) {
+void getDetail(const std::string& slug, std::function<void(anime::AnimeDetail)> then, anime::OnError error) {
     std::string key = slugOf(slug);
     brls::async([key, then, error]() {
         try {
@@ -420,7 +420,7 @@ void getDetail(const std::string& slug, std::function<void(jk::AnimeDetail)> the
     });
 }
 
-void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk::Server>)> then, jk::OnError error) {
+void getServers(const std::string& episodeUrl, std::function<void(std::vector<anime::Server>)> then, anime::OnError error) {
     brls::async([episodeUrl, then, error]() {
         try {
             std::string html = httpGet(episodeUrl);
@@ -435,10 +435,10 @@ void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk
     });
 }
 
-void resolve(const jk::Server& server, std::function<void(jk::Stream)> then, jk::OnError error) {
+void resolve(const anime::Server& server, std::function<void(anime::Stream)> then, anime::OnError error) {
     brls::async([server, then, error]() {
         try {
-            jk::Stream out = jk::resolveEmbedSync(server.name, server.url);
+            anime::Stream out = anime::resolveEmbed(server.name, server.url);
             diag::log("tio resolve '" + server.name + "' [" + server.url + "] -> " +
                 (out.url.empty() ? "FAILED" : out.url));
             if (out.url.empty()) throw std::runtime_error("No stream found");

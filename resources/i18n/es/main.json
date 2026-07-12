@@ -263,7 +263,7 @@
       "font_q1": "Establecer fuente de letra o icono",
       "font_a1": "1. Descarga la fuente o el icono de letra que quieras utilizar\n2. Renombra la fuente a  font.ttf; Renombra el icono a: icon.ttf\n3. Sitúa los archivos de fuentes en el directorio de configuración\n4. Reinicia la aplicación",
       "font_q2": "Preguntas frecuentes",
-      "font_a2": "1. Switchfin prioriza mostrar las fuentes personalizadas, usando las integradas en caso de fallo.\n2. \"Ajustes - Tutorial\" ofrece un menú para abrir rápidamente el directorio de configuración",
+      "font_a2": "1. AnimeFin prioriza mostrar las fuentes personalizadas, usando las integradas en caso de fallo.\n2. \"Ajustes - Tutorial\" ofrece un menú para abrir rápidamente el directorio de configuración",
       "font_q3": "No se muestran los subtítulos",
       "font_a3": "Coloca un fichero ttf en {}/subfont.ttf"
     },
@@ -310,8 +310,8 @@
   "hints": {
     "hint1": "Selecciona un juego de la pantalla de inicio",
     "hint2": "Mantén pulsada la tecla  y pulsa en  para acceder a hbmenu",
-    "hint3": "En hbmenu, selecciona Switchfin",
-    "hint4": "Opcional: Usar NSP forwarder de Switchfin incluido",
+    "hint3": "En hbmenu, selecciona AnimeFin",
+    "hint4": "Opcional: Usar NSP forwarder de AnimeFin incluido",
     "hint_nsp": "Pulsa  para instalar el NSP forwarder",
     "hint_confirm": "Instalar el NSP forwarder puede resultar en un baneo\nPor favor confirma de nuevo",
     "hint_right": "Las capturas proceden de Internet, y el copyright pertenece a Nintendo Co., Ltd"

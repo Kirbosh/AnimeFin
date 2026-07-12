@@ -1,5 +1,5 @@
 /*
-    AnimeFin browse activity: the JKAnime home screen.
+    AnimeFin browse activity: the anime home screen.
 
     An AutoTabFrame with three poster grids — recent episodes, the full
     directory (paginated) and search — plus the shared Settings tab. This is
@@ -12,26 +12,26 @@
 #include <borealis/core/bind.hpp>
 
 #include "view/recycling_grid.hpp"
-#include "api/jkanime.hpp"
+#include "api/media.hpp"
 
 class AutoTabFrame;
 
-/// A grid data source over jkanime catalogue cards; selecting one opens detail.
+/// A grid data source over the active source's catalogue cards; selecting one opens detail.
 class AnimeCardSource : public RecyclingGridDataSource {
 public:
-    explicit AnimeCardSource(std::vector<jk::AnimeCard> list);
+    explicit AnimeCardSource(std::vector<anime::AnimeCard> list);
 
     size_t getItemCount() override;
     RecyclingGridItem* cellForRow(RecyclingView* recycler, size_t index) override;
     void onItemSelected(brls::Box* recycler, size_t index) override;
-    void appendData(const std::vector<jk::AnimeCard>& data);
+    void appendData(const std::vector<anime::AnimeCard>& data);
     void clearData() override;
 
 private:
-    std::vector<jk::AnimeCard> list;
+    std::vector<anime::AnimeCard> list;
 };
 
-/// Open a source picker (JKAnime / AnimeFLV) and run `onPick` after switching.
+/// Open a source picker (TioAnime / Monoschinos) and run `onPick` after switching.
 void showSourcePicker(brls::View* owner, const std::function<void()>& onPick);
 
 /// Homepage "Animes recientes" grid.

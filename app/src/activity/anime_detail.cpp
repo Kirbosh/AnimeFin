@@ -29,8 +29,8 @@ static HTTP::Header jkImageHeaders(const std::string& url = "") {
         size_t e = url.find('/', s + 3);
         ref = (e == std::string::npos ? url : url.substr(0, e)) + "/";
     }
-    if (ref.empty()) ref = jk::HOST;
-    return {"User-Agent: " + jk::USER_AGENT, "Referer: " + ref};
+    if (ref.empty()) ref = std::string("https://tioanime.com/");
+    return {"User-Agent: " + anime::USER_AGENT, "Referer: " + ref};
 }
 
 // --------------------------------------------------------------- AnimePlayer
@@ -53,7 +53,7 @@ public:
 
         auto& mpv = MPVCore::instance();
         eventSubscribeID = mpv.getEvent()->subscribe([this](MpvEventEnum event) {
-            if (event == MpvEventEnum::MPV_LOADED) view->getProfile()->init("JKAnime");
+            if (event == MpvEventEnum::MPV_LOADED) view->getProfile()->init("AnimeFin");
         });
         settingSubscribeID = view->getSettingEvent()->subscribe([]() {
             brls::Application::pushActivity(new brls::Activity(new PlayerSetting()));
@@ -72,7 +72,7 @@ public:
         mpv.stop();
     }
 
-    static void play(const std::string& title, const jk::Stream& stream) {
+    static void play(const std::string& title, const anime::Stream& stream) {
         std::stringstream ssextra;
         ssextra << fmt::format("network-timeout={}", HTTP::TIMEOUT / 100);
         if (HTTP::PROXY_STATUS) ssextra << ",http-proxy=\"" << HTTP::PROXY << "\"";
@@ -95,7 +95,7 @@ private:
 
 class EpisodeSource : public RecyclingGridDataSource {
 public:
-    EpisodeSource(std::vector<jk::Episode> eps, std::string poster)
+    EpisodeSource(std::vector<anime::Episode> eps, std::string poster)
         : list(std::move(eps)), poster(std::move(poster)) {}
 
     size_t getItemCount() override { return this->list.size(); }
@@ -117,13 +117,13 @@ public:
     void clearData() override { this->list.clear(); }
 
 private:
-    std::vector<jk::Episode> list;
+    std::vector<anime::Episode> list;
     std::string poster;
 };
 
 // --------------------------------------------------------------- AnimeDetail
 
-AnimeDetail::AnimeDetail(const jk::AnimeCard& card) : card(card) {
+AnimeDetail::AnimeDetail(const anime::AnimeCard& card) : card(card) {
     brls::Logger::debug("AnimeDetail: create {}", card.slug);
 }
 
@@ -163,7 +163,7 @@ void AnimeDetail::load() {
     auto alive = this->alive;
     provider::getDetail(
         this->card,
-        [this, alive](jk::AnimeDetail d) {
+        [this, alive](anime::AnimeDetail d) {
             if (!alive->load()) return;
             this->detail = d;
             this->loaded = true;
@@ -219,7 +219,7 @@ void AnimeDetail::showEpisodeBlock(int block) {
     int end = std::min(start + EPISODES_PER_BLOCK, total);
     this->episodeBlock = block;
 
-    std::vector<jk::Episode> slice(this->detail.episodes.begin() + start, this->detail.episodes.begin() + end);
+    std::vector<anime::Episode> slice(this->detail.episodes.begin() + start, this->detail.episodes.begin() + end);
     this->episodes->setDataSource(new EpisodeSource(std::move(slice), this->detail.poster));
 
     if (total > EPISODES_PER_BLOCK) {
@@ -243,14 +243,14 @@ void AnimeDetail::pickEpisodeBlock() {
     brls::Application::pushActivity(new brls::Activity(d));
 }
 
-void AnimeDetail::playEpisode(const jk::Episode& ep) {
+void AnimeDetail::playEpisode(const anime::Episode& ep) {
     std::string title = ep.title;
     diag::log("open episode " + ep.url);
     brls::Application::blockInputs();
 
     provider::getServers(
         ep.url,
-        [title](std::vector<jk::Server> servers) {
+        [title](std::vector<anime::Server> servers) {
             brls::Application::unblockInputs();
             if (servers.empty()) {
                 Dialog::show("anime/no_servers"_i18n);
@@ -267,7 +267,7 @@ void AnimeDetail::playEpisode(const jk::Episode& ep) {
                     brls::Application::blockInputs();
                     provider::resolve(
                         servers.at(selected),
-                        [title](jk::Stream stream) {
+                        [title](anime::Stream stream) {
                             brls::Application::unblockInputs();
                             if (stream.url.empty()) {
                                 Dialog::show("anime/resolve_failed"_i18n);

@@ -248,7 +248,7 @@
       "font_q1": "Cách thiết lập phông chữ tùy chỉnh hoặc biểu tượng bản đồ phím",
       "font_a1": "1. Tải xuống phông chữ hoặc phông chữ biểu tượng mà bạn muốn\n2. Đổi tên phông chữ thành: font.ttf; Đổi tên biểu tượng thành: icon.ttf\n3. Đặt các tệp phông chữ vào thư mục cấu hình\n4. Khởi động lại ứng dụng",
       "font_q2": "Câu hỏi thường gập",
-      "font_a2": "1. Switchfin ưu tiên hiển thị phông chữ tùy chỉnh, với phông chữ tích hợp sẵn làm phương án dự phòng\n2. Mục \"Cài đặt - Hướng dẫn\" cung cấp một mục menu để mở nhanh thư mục cấu hình\n3. Trên Linux, Switchfin sử dụng xdg-open để mở thư mục. Nếu không thể mở đúng thư mục cấu hình, bạn có thể cân nhắc cài đặt công cụ này",
+      "font_a2": "1. AnimeFin ưu tiên hiển thị phông chữ tùy chỉnh, với phông chữ tích hợp sẵn làm phương án dự phòng\n2. Mục \"Cài đặt - Hướng dẫn\" cung cấp một mục menu để mở nhanh thư mục cấu hình\n3. Trên Linux, AnimeFin sử dụng xdg-open để mở thư mục. Nếu không thể mở đúng thư mục cấu hình, bạn có thể cân nhắc cài đặt công cụ này",
       "font_q3": "Phụ đề không hiển thị",
       "font_a3": "Đặt font vào {}/subfont.ttf"
     },
@@ -295,8 +295,8 @@
   "hints": {
     "hint1": "Chọn một game từ màn hình chính",
     "hint2": "Giữ \uE0E5 và \uE0E0 để vào hbmenu",
-    "hint3": "Trong hbmenu, chọn Switchfin",
-    "hint4": "Tuỳ chọn: Cài đặt Switchfin ra màn hình chính bằng NSP forwarder",
+    "hint3": "Trong hbmenu, chọn AnimeFin",
+    "hint4": "Tuỳ chọn: Cài đặt AnimeFin ra màn hình chính bằng NSP forwarder",
     "hint_nsp": "Bấm \uE0E0 để cài đặt ra màn hình chính",
     "hint_confirm": "Cài đặt NSP forwarder có thể bị ban\nVui lòng xác nhận",
     "hint_right": "Những hình ảnh này được lấy từ Internet, và bản quyền thuộc về Nintendo Co., Ltd."

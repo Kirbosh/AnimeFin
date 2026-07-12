@@ -12,7 +12,7 @@
 #include <borealis.hpp>
 #include <borealis/core/bind.hpp>
 
-#include "api/jkanime.hpp"
+#include "api/media.hpp"
 
 class RecyclingGrid;
 class TextBox;
@@ -21,13 +21,13 @@ class AnimeDetail : public brls::Activity {
 public:
     CONTENT_FROM_XML_RES("activity/anime_detail.xml");
 
-    explicit AnimeDetail(const jk::AnimeCard& card);
+    explicit AnimeDetail(const anime::AnimeCard& card);
     ~AnimeDetail() override;
 
     void onContentAvailable() override;
 
     /// Fetch the servers for an episode, prompt for one, resolve and play.
-    static void playEpisode(const jk::Episode& ep);
+    static void playEpisode(const anime::Episode& ep);
 
 private:
     void load();
@@ -36,8 +36,8 @@ private:
     /// Open a range picker when the series has more than one block.
     void pickEpisodeBlock();
 
-    jk::AnimeCard card;
-    jk::AnimeDetail detail;
+    anime::AnimeCard card;
+    anime::AnimeDetail detail;
     bool loaded = false;
     int episodeBlock = 0;
     static constexpr int EPISODES_PER_BLOCK = 100;

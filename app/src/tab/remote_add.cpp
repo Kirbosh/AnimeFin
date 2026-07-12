@@ -27,7 +27,7 @@ struct RemoteScheme {
 };
 
 /// Offered types: the order fixes the selector index.
-/// HTTP/HTTPS (Apache index) cover existing Switchfin configs.
+/// HTTP/HTTPS (Apache index) cover existing server configs.
 static const std::vector<RemoteScheme> remoteSchemes = {
     {"webdav", 80, "WebDAV"},
     {"webdavs", 443, "WebDAV (HTTPS)"},
