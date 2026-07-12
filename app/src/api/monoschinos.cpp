@@ -32,12 +32,6 @@ HTTP::Header headers(const std::string& referer = HOST) {
     };
 }
 
-HTTP::Header ajaxHeaders(const std::string& referer) {
-    auto h = headers(referer);
-    h.push_back("X-Requested-With: XMLHttpRequest");
-    return h;
-}
-
 std::string httpGet(const std::string& url) {
     try {
         std::string body = HTTP::get(url, headers(), HTTP::Timeout{8000});
@@ -49,13 +43,6 @@ std::string httpGet(const std::string& url) {
         diag::log("mono GET " + url + " -> ERROR: " + e.what());
         throw;
     }
-}
-
-std::string ajaxPost(const HTTP::Form& form, const std::string& referer) {
-    std::string url = HOST + "ajax_pagination";
-    std::string body = HTTP::post(url, form, ajaxHeaders(referer), HTTP::Timeout{8000});
-    diag::log("mono POST ajax_pagination (" + form.at("acc") + ") -> " + std::to_string(body.size()) + " bytes");
-    return body;
 }
 
 void replaceAll(std::string& s, const std::string& from, const std::string& to) {
@@ -116,11 +103,13 @@ std::string decode(std::string s) {
 }
 
 std::string toAbs(const std::string& u) {
-    if (u.empty()) return u;
-    if (u.rfind("http", 0) == 0) return u;
-    if (u.rfind("//", 0) == 0) return "https:" + u;
-    if (u.rfind("/", 0) == 0) return "https://wwv.monoschinos2.net" + u;
-    return HOST + u;
+    std::string s = u;
+    if (s.rfind("./", 0) == 0) s = s.substr(2);  // "./ver/x" -> "ver/x" (avoids /./)
+    if (s.empty()) return s;
+    if (s.rfind("http", 0) == 0) return s;
+    if (s.rfind("//", 0) == 0) return "https:" + s;
+    if (s.rfind("/", 0) == 0) return "https://wwv.monoschinos2.net" + s;
+    return HOST + s;
 }
 
 std::string tagInner(const std::string& piece, const std::string& afterToken) {
@@ -161,20 +150,6 @@ int trailingNumber(const std::string& s) {
     size_t start = end;
     while (start > 0 && std::isdigit((unsigned char)s[start - 1])) start--;
     return atoi(s.substr(start, end - start + 1).c_str());
-}
-
-/// Read an attribute value from the element that carries id="dt" (the episode
-/// pager anchor), falling back to the first occurrence anywhere on the page.
-std::string dtAttr(const std::string& html, const std::string& attr) {
-    size_t dt = html.find("id=\"dt\"");
-    if (dt != std::string::npos) {
-        // widen a little to the left so an attribute placed before id= is seen
-        size_t from = dt > 200 ? dt - 200 : 0;
-        std::string window = html.substr(from, 500);
-        std::string v = between(window, attr + "=\"", "\"");
-        if (!v.empty()) return v;
-    }
-    return between(html, attr + "=\"", "\"");
 }
 
 }  // namespace
@@ -238,14 +213,18 @@ std::vector<anime::AnimeCard> parseGrid(const std::string& html) {
     return out;
 }
 
-/// Parse one AJAX chunk of episode cards into (number,url,thumb) episodes.
-static std::vector<anime::Episode> parseEpisodesChunk(const std::string& html, const std::string& poster) {
+/// Parse /ver/ episode links into (number,url,thumb) episodes. When slugFilter is
+/// set, only links containing that slug are kept — the detail page mixes in a
+/// "Sugerencias" block of *other* animes' episodes that must be excluded.
+static std::vector<anime::Episode> parseEpisodesChunk(
+    const std::string& html, const std::string& poster, const std::string& slugFilter = "") {
     std::vector<anime::Episode> out;
     for (auto& piece : split(html, "href=\"")) {
         size_t q = piece.find('"');
         if (q == std::string::npos) continue;
         std::string href = piece.substr(0, q);
         if (href.find("/ver/") == std::string::npos) continue;
+        if (!slugFilter.empty() && href.find(slugFilter) == std::string::npos) continue;
         int n = trailingNumber(href);
         if (n < 0) continue;
         anime::Episode e;
@@ -306,6 +285,40 @@ std::vector<anime::Server> parsePlayers(const std::string& ajaxHtml) {
         pos += 7;
         std::string src = between(frag, "src=\"", "\"");
         if (!src.empty()) add(src, "");
+    }
+    return out;
+}
+
+/// Servers rendered straight into the episode page's "Descargas" block:
+///   <a class="btn btn-warning" target="_blank" href="https://voe.sx/xxx"> Voe </a>
+/// This is the reliable path — the site's /ajax_pagination endpoint is dead.
+std::vector<anime::Server> parseDownloadServers(const std::string& html) {
+    std::vector<anime::Server> out;
+    std::vector<std::string> seen;
+    auto pieces = split(html, "btn-warning");
+    for (size_t idx = 1; idx < pieces.size(); idx++) {  // skip the page head before the first match
+        const std::string& piece = pieces[idx];
+        // The href is inside the same <a> tag, so it's the first one in the piece.
+        std::string href = between(piece, "href=\"", "\"");
+        if (href.rfind("http", 0) != 0) continue;
+        if (href.find("monoschinos") != std::string::npos) continue;  // the "Lista" nav button
+        if (std::find(seen.begin(), seen.end(), href) != seen.end()) continue;
+        seen.push_back(href);
+
+        std::string name = decode(between(piece, "</svg>", "</a>"));
+        if (name.empty()) {
+            size_t h = href.find("://");
+            size_t s = href.find('/', h + 3);
+            name = href.substr(h + 3, (s == std::string::npos ? href.size() : s) - (h + 3));
+            if (name.rfind("www.", 0) == 0) name = name.substr(4);
+            size_t dot = name.find('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            if (!name.empty()) name[0] = std::toupper((unsigned char)name[0]);
+        }
+        anime::Server sv;
+        sv.url = href;
+        sv.name = name.empty() ? "Servidor" : name;
+        out.push_back(std::move(sv));
     }
     return out;
 }
@@ -385,29 +398,10 @@ void getDetail(const std::string& slug, std::function<void(anime::AnimeDetail)> 
             else if (html.find("En emision") != std::string::npos || html.find("En emisi") != std::string::npos)
                 d.status = "En emisión";
 
-            // Episode pager parameters, then page through the AJAX episode list.
-            std::string i = dtAttr(html, "data-i");
-            std::string u = dtAttr(html, "data-u");
-            std::string e = dtAttr(html, "data-e");
-            int total = atoi(e.c_str());
-            int pages = total > 0 ? (total + 49) / 50 : 1;
-            if (pages < 1) pages = 1;
-            if (pages > 60) pages = 60;
-            diag::log("mono detail '" + key + "' pager i=" + i + " u=" + u + " e=" + e + " pages=" + std::to_string(pages));
-
-            std::vector<anime::Episode> eps;
-            if (!i.empty() && !u.empty()) {
-                for (int p = 1; p <= pages; p++) {
-                    HTTP::Form form = {{"acc", "episodes"}, {"i", i}, {"u", u}, {"p", std::to_string(p)}};
-                    std::string chunk = ajaxPost(form, url);
-                    auto part = parseEpisodesChunk(chunk, d.poster);
-                    if (p == 1 && part.empty()) diag::dump("mono_episodes_empty", url, chunk);
-                    if (part.empty()) break;  // no more pages
-                    eps.insert(eps.end(), part.begin(), part.end());
-                }
-            }
-            // Fallback: any /ver/ links already on the detail page.
-            if (eps.empty()) eps = parseEpisodesChunk(html, d.poster);
+            // Episodes are rendered into the detail page as /ver/<slug>-episodio-N
+            // links (the /ajax_pagination XHR the site once used now returns empty).
+            // Filter to this anime's own slug so the "Sugerencias" block doesn't leak.
+            std::vector<anime::Episode> eps = parseEpisodesChunk(html, d.poster, key);
 
             std::sort(eps.begin(), eps.end(), [](const anime::Episode& a, const anime::Episode& b) { return a.number < b.number; });
             eps.erase(std::unique(eps.begin(), eps.end(),
@@ -433,15 +427,10 @@ void getServers(const std::string& episodeUrl, std::function<void(std::vector<an
     brls::async([episodeUrl, then, error]() {
         try {
             std::string html = httpGet(episodeUrl);
-            std::string enc = between(html, "data-encrypt=\"", "\"");
-            std::vector<anime::Server> r;
-            if (!enc.empty()) {
-                HTTP::Form form = {{"acc", "opt"}, {"i", enc}};
-                std::string resp = ajaxPost(form, episodeUrl);
-                r = parsePlayers(resp);
-                if (r.empty()) diag::dump("mono_opt_empty", episodeUrl, resp);
-            }
-            // Fallback: players embedded directly in the episode page.
+            // The server list is rendered into the page (the /ajax_pagination
+            // XHR the site once used now returns empty). Read it directly.
+            std::vector<anime::Server> r = parseDownloadServers(html);
+            // Legacy fallbacks in case a page still ships data-player/iframes.
             if (r.empty()) r = parsePlayers(html);
             diag::log("mono servers " + episodeUrl + ": " + std::to_string(r.size()) + " found");
             if (r.empty()) diag::dump("mono_servers_empty", episodeUrl, html);

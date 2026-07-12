@@ -332,15 +332,31 @@ Stream resolveFembed(const std::string& embedUrl) {
 }  // namespace
 
 Stream resolveEmbed(const std::string& serverName, const std::string& url) {
+    // Some sources (e.g. Monoschinos) hand out a host's file/download page rather
+    // than its embed page. Normalise the common ones to their embed form, which is
+    // what the readers below expect.
+    std::string u = url;
+    if (u.find("mp4upload.com") != std::string::npos && u.find("embed-") == std::string::npos) {
+        size_t last = u.find_last_of('/');
+        std::string code = last == std::string::npos ? "" : u.substr(last + 1);
+        size_t dot = code.find('.');
+        if (dot != std::string::npos) code = code.substr(0, dot);
+        if (!code.empty()) u = "https://www.mp4upload.com/embed-" + code + ".html";
+    }
+    if (u.find("mixdrop") != std::string::npos) {
+        size_t f = u.find("/f/");
+        if (f != std::string::npos) u.replace(f, 3, "/e/");
+    }
+
     std::string name = serverName;
     std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-    auto has = [&](const char* s) { return name.find(s) != std::string::npos || url.find(s) != std::string::npos; };
+    auto has = [&](const char* s) { return name.find(s) != std::string::npos || u.find(s) != std::string::npos; };
 
-    if (has("okru") || has("ok.ru")) return resolveOkru(url);
-    if (has("mixdrop") || has("mdfx") || has("mdbekjwqa") || has("mdy48tn97")) return resolveMixdrop(url);
-    if (has("fembed") || has("/api/source/")) return resolveFembed(url);
+    if (has("okru") || has("ok.ru")) return resolveOkru(u);
+    if (has("mixdrop") || has("mdfx") || has("mdbekjwqa") || has("mdy48tn97")) return resolveMixdrop(u);
+    if (has("fembed") || has("/api/source/")) return resolveFembed(u);
     // StreamWish / Filemoon / Voe / mp4upload / sw and friends.
-    return resolveGeneric(url);
+    return resolveGeneric(u);
 }
 
 }  // namespace anime

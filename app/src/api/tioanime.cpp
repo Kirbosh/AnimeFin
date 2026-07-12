@@ -243,10 +243,12 @@ anime::AnimeDetail parseDetail(const std::string& slug, const std::string& html)
     if (!infoRaw.empty() && nlohmann::json::accept(infoRaw)) {
         nlohmann::json info = nlohmann::json::parse(infoRaw);
         if (info.is_array()) {
+            // Layout is [id, slug, title, next_air]. e.g.
+            // ["4476","koukaku-kidoutai-tv","Koukaku Kidoutai (TV)",null]
             if (info.size() > 0 && info[0].is_string()) id = info[0].get<std::string>();
-            if (info.size() > 1 && info[1].is_string()) d.title = decode(info[1].get<std::string>());
-            if (info.size() > 2 && info[2].is_string() && !info[2].get<std::string>().empty())
-                d.slug = info[2].get<std::string>();
+            if (info.size() > 1 && info[1].is_string() && !info[1].get<std::string>().empty())
+                d.slug = info[1].get<std::string>();
+            if (info.size() > 2 && info[2].is_string()) d.title = decode(info[2].get<std::string>());
             if (info.size() > 3 && info[3].is_string()) {
                 std::string next = info[3].get<std::string>();
                 if (!next.empty() && next != "null") {
