@@ -45,8 +45,9 @@ struct Episode {
 
 /// A streaming source offered for one episode, before resolution.
 struct Server {
-    std::string name;  ///< human label ("Nozomi", "Mixdrop", "Okru" ...)
-    std::string url;   ///< embed url or on-page player url (already absolute)
+    std::string name;     ///< human label ("Nozomi", "Mixdrop", "Okru" ...)
+    std::string url;      ///< embed url or on-page player url (already absolute)
+    std::string referer;  ///< optional Referer the stream needs (from proxyHeaders)
 };
 
 /// The resolved, directly-playable stream plus the mpv options it needs.

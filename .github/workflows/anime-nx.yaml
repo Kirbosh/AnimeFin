@@ -84,7 +84,7 @@ jobs:
           Automated build of the `claude/ripjkanimenx-poster-player-siuuw8` branch (deko3d).
 
           Copy **AnimeFin.nro** to `/switch/` on your SD card and launch it from the hbmenu.
-          Opens into TioAnime; press **X** to switch source, **Y** to sort/search.
+          Streams via a Spanish anime addon; press **X** to switch source (AnimeFLV, TioAnime, ...).
           If anything breaks, send `sdmc:/switch/AnimeFin/anime_diag.log`
           (and any `diag_*.txt`).
 
