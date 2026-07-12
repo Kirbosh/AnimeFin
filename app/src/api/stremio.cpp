@@ -8,6 +8,7 @@
 
 #include "api/stremio.hpp"
 #include "api/diag.hpp"
+#include "api/http.hpp"
 
 #include <nlohmann/json.hpp>
 #include <borealis/core/thread.hpp>

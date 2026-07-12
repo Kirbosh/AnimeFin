@@ -1,14 +1,9 @@
 /*
-    Shared media types + stream resolver for AnimeFin.
+    Shared media types for AnimeFin.
 
-    Source-agnostic building blocks used by every provider (TioAnime,
-    Monoschinos, ...). The catalogue/episode/server structs are what the browse
-    and detail UI speak, and resolveEmbed() turns a chosen streaming server into
-    a direct, mpv-playable url — host-routed across the common embed players
-    (ok.ru / Mixdrop / Fembed / StreamWish / Filemoon / Voe / mp4upload ...).
-
-    All scraping is plain HTML/JSON over the app's HTTP client, wrapped in the
-    same async(then)/error style as the rest of the app.
+    Source-agnostic building blocks the UI speaks: a catalogue card, an episode,
+    a streaming server, a resolved stream, and full anime detail. The data is
+    supplied by the Stremio-addon backend (api/stremio.*).
 */
 
 #pragma once
@@ -17,11 +12,9 @@
 #include <vector>
 #include <functional>
 
-#include "api/http.hpp"
-
 namespace anime {
 
-/// A desktop-browser UA; the streaming CDNs reject the default agent.
+/// A desktop-browser UA; some stream CDNs reject the default agent.
 inline const std::string USER_AGENT =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -76,25 +69,5 @@ struct AnimeDetail {
 };
 
 using OnError = std::function<void(const std::string&)>;
-
-/// Synchronously resolve a generic embed url (ok.ru / Mixdrop / Fembed /
-/// packed-JS & jwplayer hosts) to a direct stream. Host-agnostic; returns an
-/// empty Stream when nothing was found. Must run off the UI thread.
-Stream resolveEmbed(const std::string& serverName, const std::string& url);
-
-// --- Stream extraction primitives (pure, unit-tested) ---------------------
-
-/// Unpack a Dean-Edwards `eval(function(p,a,c,k,e,d){...})` payload (used by
-/// Mixdrop, StreamWish, Filemoon, Voe, ...). Returns the unpacked source, or
-/// "" if the text isn't a packed script.
-std::string unpackPacked(const std::string& source);
-
-/// Find the first direct video url (m3u8 / mp4 / `file:"..."`) in arbitrary
-/// player markup or script. Returns a scheme-qualified url, or "".
-std::string findStreamUrl(const std::string& text);
-
-/// Extract the best-quality mp4 from an ok.ru embed page's `data-options`
-/// JSON blob. Returns "" when no playable url is present.
-std::string parseOkruOptions(const std::string& html);
 
 }  // namespace anime

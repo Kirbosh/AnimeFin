@@ -53,7 +53,6 @@ public:
 private:
     void reload();
     void loadPage();
-    void pickSort();
     int page = 1;
     bool finished = false;
     std::string order = "default";

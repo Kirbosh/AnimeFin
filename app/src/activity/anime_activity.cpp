@@ -8,6 +8,7 @@
 
 #include "api/provider.hpp"
 #include "api/diag.hpp"
+#include "api/http.hpp"
 #include "view/auto_tab_frame.hpp"
 #include "view/video_card.hpp"
 #include "view/svg_image.hpp"
@@ -113,33 +114,10 @@ AnimeDirectoryTab::AnimeDirectoryTab() {
     this->estimatedRowHeight = 300;
     this->spanCount = 6;
     this->registerAction("anime/source"_i18n, brls::BUTTON_X,
-        [this](brls::View*) { showSourcePicker(this, [this]() { this->order = "default"; this->reload(); }); return true; });
-    this->registerAction("anime/sort"_i18n, brls::BUTTON_Y,
-        [this](brls::View*) { this->pickSort(); return true; });
+        [this](brls::View*) { showSourcePicker(this, [this]() { this->reload(); }); return true; });
 
     this->onNextPage([this]() { this->loadPage(); });
     this->reload();
-}
-
-void AnimeDirectoryTab::pickSort() {
-    const auto& opts = provider::sortOptions();
-    if (opts.empty()) return;  // active source can't sort
-    std::vector<std::string> labels;
-    int current = 0;
-    for (size_t i = 0; i < opts.size(); i++) {
-        labels.push_back(brls::getStr(opts[i].second));
-        if (opts[i].first == this->order) current = (int)i;
-    }
-    brls::Dropdown* d = new brls::Dropdown(
-        "anime/sort"_i18n, labels,
-        [this, opts](int selected) {
-            if (selected >= 0 && selected < (int)opts.size()) {
-                this->order = opts[selected].first;
-                this->reload();
-            }
-        },
-        current);
-    brls::Application::pushActivity(new brls::Activity(d));
 }
 
 void AnimeDirectoryTab::reload() {

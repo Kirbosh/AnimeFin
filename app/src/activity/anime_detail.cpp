@@ -6,6 +6,7 @@
 
 #include "api/provider.hpp"
 #include "api/diag.hpp"
+#include "api/http.hpp"
 #include "view/recycling_grid.hpp"
 #include "view/video_card.hpp"
 #include "view/video_view.hpp"

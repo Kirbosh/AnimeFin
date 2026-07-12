@@ -29,9 +29,6 @@ const std::vector<std::string>& names();
 void getRecent(std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error);
 void getDirectory(int page, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error,
     const std::string& order = "default");
-
-/// Sort options supported by the active source (empty when it can't sort).
-const std::vector<std::pair<std::string, std::string>>& sortOptions();
 void search(const std::string& query, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error);
 
 // Detail / playback — the item id names its source.

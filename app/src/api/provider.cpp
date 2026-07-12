@@ -24,12 +24,6 @@ void getDirectory(
     strm::getDirectory(page, then, error, order);
 }
 
-const std::vector<std::pair<std::string, std::string>>& sortOptions() {
-    // The addon catalogs don't expose a sort knob through our UI.
-    static const std::vector<std::pair<std::string, std::string>> none = {};
-    return none;
-}
-
 void search(const std::string& query, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error) {
     strm::search(query, then, error);
 }
