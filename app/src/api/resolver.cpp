@@ -192,18 +192,32 @@ std::string unpackPacked(const std::string& source) {
     return out;
 }
 
+/// A url is a static asset (not a stream) if its path ends in one of these.
+static bool isAssetUrl(const std::string& u) {
+    std::string p = u.substr(0, u.find('?'));
+    std::transform(p.begin(), p.end(), p.begin(), ::tolower);
+    for (const std::string ext :
+        {".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".woff", ".woff2", ".ico", ".json"})
+        if (p.size() >= ext.size() && p.compare(p.size() - ext.size(), ext.size(), ext) == 0) return true;
+    return false;
+}
+
 std::string findStreamUrl(const std::string& text) {
     auto norm = [](std::string u) {
         if (u.rfind("//", 0) == 0) u = "https:" + u;
         return u;
     };
-    std::smatch m;
-    // Authoritative first: an explicit file:"..."/wurl="..." field (group 1 = url).
+    // Authoritative first: explicit file/source/wurl fields. Iterate all matches
+    // and skip static assets (a small embed page can otherwise yield a .css url).
     static const std::regex fieldRe(
-        R"#((?:"file"|'file'|file|"wurl"|wurl)\s*[:=]\s*["']((?:https?:)?\/\/[^"']+)["'])#");
-    if (std::regex_search(text, m, fieldRe) && m.size() > 1) return norm(m.str(1));
+        R"#((?:"file"|'file'|file|"wurl"|wurl|"source"|'source'|"hls"|hls|"videoUrl")\s*[:=]\s*["']((?:https?:)?\/\/[^"']+)["'])#");
+    for (std::sregex_iterator it(text.begin(), text.end(), fieldRe), end; it != end; ++it) {
+        std::string u = norm((*it).str(1));
+        if (!isAssetUrl(u)) return u;
+    }
 
     // Otherwise a bare HLS, then mp4 url anywhere in the markup.
+    std::smatch m;
     static const std::regex bareRe[] = {
         std::regex(R"((?:https?:)?\/\/[^"'\\\s<>]+\.m3u8[^"'\\\s<>]*)"),
         std::regex(R"((?:https?:)?\/\/[^"'\\\s<>]+\.mp4[^"'\\\s<>]*)"),
@@ -255,8 +269,22 @@ std::string parseOkruOptions(const std::string& html) {
 
 namespace {
 
+/// Unpack every Dean-Edwards packed block on a page (players are often preceded
+/// by packed ad scripts, so the first block isn't necessarily the right one).
+std::string unpackAll(const std::string& page) {
+    std::string all;
+    size_t pos = 0;
+    while ((pos = page.find("}(", pos)) != std::string::npos) {
+        std::string seg = unpackPacked(page.substr(pos));
+        if (!seg.empty()) all += seg + "\n";
+        pos += 2;
+    }
+    return all;
+}
+
 /// Fetch an embed page and dig out its direct stream: try the raw markup, then
-/// the unpacked script, then follow one level of iframe.
+/// the unpacked script(s), then follow one level of iframe. Dumps the page when
+/// nothing is found so the real format can be inspected from the device logs.
 Stream resolveGeneric(const std::string& embedUrl, int depth = 1) {
     Stream out;
     std::string page = httpGet(embedUrl);
@@ -264,7 +292,7 @@ Stream resolveGeneric(const std::string& embedUrl, int depth = 1) {
 
     std::string url = findStreamUrl(page);
     if (url.empty()) {
-        std::string unpacked = unpackPacked(page);
+        std::string unpacked = unpackAll(page);
         if (!unpacked.empty()) url = findStreamUrl(unpacked);
     }
     if (url.empty() && depth > 0) {
@@ -276,12 +304,15 @@ Stream resolveGeneric(const std::string& embedUrl, int depth = 1) {
                 src = "https:" + src;
             else if (src.rfind("/", 0) == 0)
                 src = originOf(embedUrl) + src;
-            if (src != embedUrl) return resolveGeneric(src, depth - 1);
+            // only follow a real http(s) frame (avoids about:blank, data:, javascript:)
+            if (src.rfind("http", 0) == 0 && src != embedUrl) return resolveGeneric(src, depth - 1);
         }
     }
     if (!url.empty()) {
         out.url = url;
         out.referer = originOf(embedUrl) + "/";
+    } else {
+        diag::dump("resolve_generic", embedUrl, page);
     }
     return out;
 }
@@ -290,11 +321,14 @@ Stream resolveGeneric(const std::string& embedUrl, int depth = 1) {
 Stream resolveMixdrop(const std::string& embedUrl) {
     Stream out;
     std::string page = httpGet(embedUrl);
-    std::string unpacked = unpackPacked(page);
+    std::string unpacked = unpackAll(page);
     std::string url = findStreamUrl(unpacked.empty() ? page : unpacked);
+    if (url.empty()) url = findStreamUrl(page);
     if (!url.empty()) {
         out.url = url;
         out.referer = originOf(embedUrl) + "/";
+    } else {
+        diag::dump("resolve_mixdrop", embedUrl, unpacked.empty() ? page : unpacked);
     }
     return out;
 }
@@ -347,6 +381,10 @@ Stream resolveEmbed(const std::string& serverName, const std::string& url) {
         size_t f = u.find("/f/");
         if (f != std::string::npos) u.replace(f, 3, "/e/");
     }
+
+    // Mega streams are end-to-end encrypted (the key lives in the url fragment
+    // and is decrypted in-browser); they can't be turned into a plain url here.
+    if (u.find("mega.nz") != std::string::npos || u.find("mega.co.nz") != std::string::npos) return {};
 
     std::string name = serverName;
     std::transform(name.begin(), name.end(), name.begin(), ::tolower);
