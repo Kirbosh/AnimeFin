@@ -17,7 +17,7 @@
 
 namespace provider {
 
-enum class Source { JK, FLV };
+enum class Source { TIO, MONO };
 
 /// Currently active browse source.
 Source active();

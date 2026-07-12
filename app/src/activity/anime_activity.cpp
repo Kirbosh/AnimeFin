@@ -34,7 +34,7 @@ void showSourcePicker(brls::View* owner, const std::function<void()>& onPick) {
     brls::Dropdown* d = new brls::Dropdown(
         "anime/source"_i18n, provider::names(),
         [onPick](int selected) {
-            provider::setActive(selected == 1 ? provider::Source::FLV : provider::Source::JK);
+            provider::setActive(selected == 1 ? provider::Source::MONO : provider::Source::TIO);
             onPick();
         },
         static_cast<int>(provider::active()));

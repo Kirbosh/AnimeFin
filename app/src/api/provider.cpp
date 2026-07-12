@@ -1,78 +1,79 @@
 #include "api/provider.hpp"
-#include "api/animeflv.hpp"
+#include "api/tioanime.hpp"
+#include "api/monoschinos.hpp"
 
 namespace provider {
 
-// AnimeFLV is the default browse source: larger catalogue, JSON-embedded
-// episode/server data (more robust to scrape) and explicit SUB/LAT labelling.
-// JKAnime stays one button away (BUTTON_X) as a fallback.
-static Source current = Source::FLV;
+// TioAnime is the default browse source: it server-renders the whole pipeline
+// (episode list and `var videos = [...]` server list live in the page HTML), so
+// it scrapes reliably without any XHR. Monoschinos is the dub-heavy alternative
+// and is one button away (BUTTON_X).
+static Source current = Source::TIO;
 
 Source active() { return current; }
 void setActive(Source s) { current = s; }
 
 const std::vector<std::string>& names() {
-    static const std::vector<std::string> n = {"JKAnime", "AnimeFLV"};
+    // Indexed to match the Source enum order (TIO, MONO).
+    static const std::vector<std::string> n = {"TioAnime", "Monoschinos"};
     return n;
 }
 
 void getRecent(std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
-    if (current == Source::FLV)
-        flv::getRecent(then, error);
+    if (current == Source::MONO)
+        mono::getRecent(then, error);
     else
-        jk::getRecent(then, error);
+        tio::getRecent(then, error);
 }
 
 void getDirectory(
     int page, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error, const std::string& order) {
-    if (current == Source::FLV)
-        flv::getDirectory(page, then, error, order);
+    if (current == Source::MONO)
+        mono::getDirectory(page, then, error, order);
     else
-        jk::getDirectory(page, then, error, order);
+        tio::getDirectory(page, then, error, order);
 }
 
 const std::vector<std::pair<std::string, std::string>>& sortOptions() {
-    // pair = { AnimeFLV order value, i18n key }
-    static const std::vector<std::pair<std::string, std::string>> flvSort = {
+    // pair = { source order value, i18n key }. TioAnime's /directorio?sort= knob.
+    static const std::vector<std::pair<std::string, std::string>> tioSort = {
         {"default", "anime/sort_default"},
-        {"updated", "anime/sort_recent"},
-        {"title", "anime/sort_title"},
-        {"rating", "anime/sort_rating"},
+        {"recent", "anime/sort_recent"},
     };
     static const std::vector<std::pair<std::string, std::string>> none = {};
-    return current == Source::FLV ? flvSort : none;
+    return current == Source::TIO ? tioSort : none;
 }
 
 void search(const std::string& query, std::function<void(std::vector<jk::AnimeCard>)> then, jk::OnError error) {
-    if (current == Source::FLV)
-        flv::search(query, then, error);
+    if (current == Source::MONO)
+        mono::search(query, then, error);
     else
-        jk::search(query, then, error);
+        tio::search(query, then, error);
 }
 
 // --- routed by host so a card resolves against its own site ---------------
 
-static bool isFlv(const std::string& url) { return url.find("animeflv") != std::string::npos; }
+static bool isMono(const std::string& url) { return url.find("monoschinos") != std::string::npos; }
 
 void getDetail(const jk::AnimeCard& card, std::function<void(jk::AnimeDetail)> then, jk::OnError error) {
-    if (isFlv(card.url))
-        flv::getDetail(card.slug, then, error);
+    if (isMono(card.url))
+        mono::getDetail(card.slug, then, error);
     else
-        jk::getDetail(card.slug, then, error);
+        tio::getDetail(card.slug, then, error);
 }
 
 void getServers(const std::string& episodeUrl, std::function<void(std::vector<jk::Server>)> then, jk::OnError error) {
-    if (isFlv(episodeUrl))
-        flv::getServers(episodeUrl, then, error);
+    if (isMono(episodeUrl))
+        mono::getServers(episodeUrl, then, error);
     else
-        jk::getServers(episodeUrl, then, error);
+        tio::getServers(episodeUrl, then, error);
 }
 
 void resolve(const jk::Server& server, std::function<void(jk::Stream)> then, jk::OnError error) {
-    if (isFlv(server.url))
-        flv::resolve(server, then, error);
+    if (isMono(server.url))
+        mono::resolve(server, then, error);
     else
-        jk::resolve(server, then, error);
+        tio::resolve(server, then, error);
 }
 
 }  // namespace provider
