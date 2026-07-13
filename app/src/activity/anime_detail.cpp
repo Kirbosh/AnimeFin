@@ -244,6 +244,27 @@ void AnimeDetail::pickEpisodeBlock() {
     brls::Application::pushActivity(new brls::Activity(d));
 }
 
+/// Resolve servers in order until one yields a playable stream, then play it.
+/// No prompt — the source was already chosen; the app just goes in.
+static void autoPlay(std::shared_ptr<std::vector<anime::Server>> servers, size_t i, std::string title) {
+    if (i >= servers->size()) {
+        brls::Application::unblockInputs();
+        Dialog::show("anime/resolve_failed"_i18n);
+        return;
+    }
+    provider::resolve(
+        servers->at(i),
+        [servers, i, title](anime::Stream stream) {
+            if (stream.url.empty()) {
+                autoPlay(servers, i + 1, title);
+                return;
+            }
+            brls::Application::unblockInputs();
+            AnimePlayer::play(title, stream);
+        },
+        [servers, i, title](const std::string&) { autoPlay(servers, i + 1, title); });
+}
+
 void AnimeDetail::playEpisode(const anime::Episode& ep) {
     std::string title = ep.title;
     diag::log("open episode " + ep.url);
@@ -252,36 +273,13 @@ void AnimeDetail::playEpisode(const anime::Episode& ep) {
     provider::getServers(
         ep.url,
         [title](std::vector<anime::Server> servers) {
-            brls::Application::unblockInputs();
             if (servers.empty()) {
+                brls::Application::unblockInputs();
                 Dialog::show("anime/no_servers"_i18n);
                 return;
             }
-
-            std::vector<std::string> names;
-            for (auto& s : servers) names.push_back(s.name);
-
-            // Let the user choose which host to stream from.
-            brls::Dropdown* dropdown = new brls::Dropdown(
-                "anime/choose_server"_i18n, names, [servers, title](int selected) {
-                    if (selected < 0 || selected >= (int)servers.size()) return;
-                    brls::Application::blockInputs();
-                    provider::resolve(
-                        servers.at(selected),
-                        [title](anime::Stream stream) {
-                            brls::Application::unblockInputs();
-                            if (stream.url.empty()) {
-                                Dialog::show("anime/resolve_failed"_i18n);
-                                return;
-                            }
-                            AnimePlayer::play(title, stream);
-                        },
-                        [](const std::string& ex) {
-                            brls::Application::unblockInputs();
-                            Dialog::show(ex);
-                        });
-                });
-            brls::Application::pushActivity(new brls::Activity(dropdown));
+            diag::log("auto-play: trying " + std::to_string(servers.size()) + " server(s)");
+            autoPlay(std::make_shared<std::vector<anime::Server>>(std::move(servers)), 0, title);
         },
         [](const std::string& ex) {
             brls::Application::unblockInputs();

@@ -46,14 +46,22 @@ HTTP::Header headers() {
 }
 
 std::string httpGet(const std::string& url) {
-    try {
-        std::string body = HTTP::get(url, headers(), HTTP::Timeout{12000});
-        diag::log("strm GET " + url + " -> " + std::to_string(body.size()) + " bytes");
-        return body;
-    } catch (const std::exception& e) {
-        diag::log("strm GET " + url + " -> ERROR: " + e.what());
-        throw;
+    // The addon runs on free hosting that cold-starts and stalls: a warm request
+    // is ~3s, a cold one blows past a short timeout. Use a generous timeout and
+    // retry — the first (failed) request tends to wake the server for the next.
+    std::string lastErr;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+            std::string body = HTTP::get(url, headers(), HTTP::Timeout{20000});
+            diag::log("strm GET " + url + " -> " + std::to_string(body.size()) + " bytes" +
+                (attempt > 1 ? " (attempt " + std::to_string(attempt) + ")" : ""));
+            return body;
+        } catch (const std::exception& e) {
+            lastErr = e.what();
+            diag::log("strm GET " + url + " attempt " + std::to_string(attempt) + " -> ERROR: " + lastErr);
+        }
     }
+    throw std::runtime_error(lastErr);
 }
 
 std::string joinGenres(const nlohmann::json& g) {
