@@ -1,43 +1,48 @@
 #include "api/provider.hpp"
-#include "api/stremio.hpp"
+#include "api/tioanime.hpp"
+
+// Native, self-contained backend: AnimeFin scrapes the source directly and
+// resolves the streaming hosts itself (see api/extractors.cpp), so there is no
+// external server to depend on. More sources can be added to names()/the
+// dispatch as they are ported.
 
 namespace provider {
 
-size_t active() { return strm::activeCatalog(); }
-void setActive(size_t i) { strm::setActiveCatalog(i); }
+static size_t s_active = 0;
+
+size_t active() { return s_active; }
+void setActive(size_t i) {
+    if (i < names().size()) s_active = i;
+}
 
 const std::vector<std::string>& names() {
-    static std::vector<std::string> n = [] {
-        std::vector<std::string> v;
-        for (auto& c : strm::catalogs()) v.push_back(c.name);
-        return v;
-    }();
+    static const std::vector<std::string> n = {"TioAnime"};
     return n;
 }
 
 void getRecent(std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error) {
-    strm::getRecent(then, error);
+    tio::getRecent(then, error);
 }
 
 void getDirectory(
     int page, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error, const std::string& order) {
-    strm::getDirectory(page, then, error, order);
+    tio::getDirectory(page, then, error, order);
 }
 
 void search(const std::string& query, std::function<void(std::vector<anime::AnimeCard>)> then, anime::OnError error) {
-    strm::search(query, then, error);
+    tio::search(query, then, error);
 }
 
 void getDetail(const anime::AnimeCard& card, std::function<void(anime::AnimeDetail)> then, anime::OnError error) {
-    strm::getDetail(card.slug, then, error);
+    tio::getDetail(card.slug, then, error);
 }
 
 void getServers(const std::string& episodeId, std::function<void(std::vector<anime::Server>)> then, anime::OnError error) {
-    strm::getStreams(episodeId, then, error);
+    tio::getServers(episodeId, then, error);
 }
 
 void resolve(const anime::Server& server, std::function<void(anime::Stream)> then, anime::OnError error) {
-    strm::resolve(server, then, error);
+    tio::resolve(server, then, error);
 }
 
 }  // namespace provider

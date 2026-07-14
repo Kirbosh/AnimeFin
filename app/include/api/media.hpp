@@ -3,7 +3,8 @@
 
     Source-agnostic building blocks the UI speaks: a catalogue card, an episode,
     a streaming server, a resolved stream, and full anime detail. The data is
-    supplied by the Stremio-addon backend (api/stremio.*).
+    scraped natively from the source (api/tioanime.*) and resolved by
+    api/extractors.*.
 */
 
 #pragma once
@@ -69,5 +70,12 @@ struct AnimeDetail {
 };
 
 using OnError = std::function<void(const std::string&)>;
+
+/// Turn a chosen streaming server (host embed page) into a directly-playable
+/// Stream, natively — no external resolver server. Host-routed across the hosts
+/// these Spanish sources use (YourUpload / MP4Upload / Voe / StreamWish /
+/// Filemoon / Okru / Vidhide / ...). Returns an empty Stream when nothing was
+/// found. Must run off the UI thread. See api/extractors.cpp.
+Stream resolveEmbed(const std::string& serverName, const std::string& url);
 
 }  // namespace anime
