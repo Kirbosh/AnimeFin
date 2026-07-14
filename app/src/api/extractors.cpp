@@ -31,7 +31,7 @@ HTTP::Header headers(const std::string& referer) {
 
 std::string httpGet(const std::string& url, const std::string& referer = "") {
     try {
-        std::string body = HTTP::get(url, headers(referer), HTTP::Timeout{12000});
+        std::string body = HTTP::get(url, headers(referer), HTTP::Timeout{8000});
         diag::log("extract GET " + url + " -> " + std::to_string(body.size()) + " bytes");
         return body;
     } catch (const std::exception& e) {
@@ -111,12 +111,18 @@ std::string fieldValue(const std::string& t, const std::string& key) {
 std::string bareMedia(const std::string& t, const std::string& ext) {
     size_t e = 0;
     while ((e = t.find(ext, e)) != std::string::npos) {
-        // url start = nearest scheme marker before the extension (http or //)
-        size_t h = t.rfind("http", e);
-        size_t d = t.rfind("//", e);
+        // url start = nearest real scheme marker before the extension. Must be
+        // "https://"/"http://" (NOT bare "http", which also matches http-equiv=)
+        // or a protocol-relative "//".
         size_t start = std::string::npos;
-        if (h != std::string::npos) start = h;
-        if (d != std::string::npos && (start == std::string::npos || d > start)) start = d;
+        for (const char* scheme : {"https://", "http://"}) {
+            size_t p = t.rfind(scheme, e);
+            if (p != std::string::npos && (start == std::string::npos || p > start)) start = p;
+        }
+        if (start == std::string::npos) {
+            size_t d = t.rfind("//", e);
+            if (d != std::string::npos) start = d;
+        }
         if (start != std::string::npos && e - start < 2000) {
             size_t end = e + ext.size();
             while (end < t.size()) {
@@ -182,9 +188,20 @@ std::string metaContent(const std::string& data, const std::string& prop) {
 
 // ---- per-host recipes (ported from streamParsing.js) ---------------------
 
+/// A clean, directly-playable url: real scheme and no stray HTML/whitespace (so
+/// a scrape that accidentally grabbed markup is never handed to mpv).
+bool validMedia(const std::string& u) {
+    if (u.rfind("https://", 0) != 0 && u.rfind("http://", 0) != 0) return false;
+    if (u.size() > 2000) return false;
+    for (char c : u)
+        if (c == ' ' || c == '"' || c == '\'' || c == '<' || c == '>' || c == '\n' || c == '\r' || c == '\t')
+            return false;
+    return true;
+}
+
 Stream mk(const std::string& url, const std::string& referer) {
     Stream out;
-    if (!url.empty() && url.rfind("http", 0) == 0) {
+    if (validMedia(url)) {
         out.url = url;
         out.referer = referer;
     }
@@ -261,6 +278,9 @@ Stream resolveEmbed(const std::string& serverName, const std::string& url) {
     auto is = [&](const char* s) { return n.find(s) != std::string::npos || u.find(s) != std::string::npos; };
 
     if (is("mega.nz") || is("mega.co")) return {};  // end-to-end encrypted, unsupported
+    // Hosts we have no working recipe for — skip instantly instead of spending a
+    // timeout on a page we can't parse (VidGuard is also frequently down/523).
+    if (is("vidguard") || is("vgfplay") || is("listeamed") || is("streamtape") || is("stape")) return {};
     if (is("yourupload")) return yourUpload(url);
     if (is("mp4upload")) return mp4Upload(url);
     if (is("pdrain")) return pdrain(url);

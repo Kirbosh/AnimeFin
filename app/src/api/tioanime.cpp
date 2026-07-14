@@ -351,6 +351,24 @@ std::vector<anime::Server> parseServers(const std::string& html) {
         sv.url = url;
         out.push_back(std::move(sv));
     }
+
+    // Try the reliably-resolvable hosts first so playback starts fast; the flaky
+    // or unsupported ones (Voe, VidGuard, Mega) sink to the end.
+    auto rank = [](std::string n) {
+        std::transform(n.begin(), n.end(), n.begin(), ::tolower);
+        auto has = [&](const char* s) { return n.find(s) != std::string::npos; };
+        if (has("yourupload")) return 0;
+        if (has("mp4upload")) return 1;
+        if (has("streamwish") || n == "sw") return 2;
+        if (has("filemoon")) return 3;
+        if (has("vidhide")) return 4;
+        if (has("okru") || has("ok.ru")) return 5;
+        if (has("voe")) return 8;
+        if (has("vidguard") || has("mega") || has("stape") || has("streamtape")) return 9;
+        return 7;
+    };
+    std::stable_sort(out.begin(), out.end(),
+        [&](const anime::Server& a, const anime::Server& b) { return rank(a.name) < rank(b.name); });
     return out;
 }
 
