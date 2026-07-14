@@ -13,6 +13,8 @@
 #include <nlohmann/json.hpp>
 #include <borealis/core/thread.hpp>
 #include <algorithm>
+#include <thread>
+#include <chrono>
 
 namespace strm {
 
@@ -46,21 +48,31 @@ HTTP::Header headers() {
 }
 
 std::string httpGet(const std::string& url) {
-    // The addon runs on free hosting that cold-starts and stalls: a warm request
-    // is ~3s, a cold one blows past a short timeout. Use a generous timeout and
-    // retry — the first (failed) request tends to wake the server for the next.
+    // The addon runs on free hosting: when idle it cold-starts and the gateway
+    // returns 502/503 for a few seconds until the app is up, and a cold request
+    // can be slow. So use a generous timeout and retry *with backoff* — an
+    // instant retry just gets the same 502; waiting a few seconds lets it wake.
     std::string lastErr;
-    for (int attempt = 1; attempt <= 3; attempt++) {
+    static const int waitBefore[] = {0, 3, 6};  // seconds
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (waitBefore[attempt] > 0)
+            std::this_thread::sleep_for(std::chrono::seconds(waitBefore[attempt]));
         try {
-            std::string body = HTTP::get(url, headers(), HTTP::Timeout{20000});
+            std::string body = HTTP::get(url, headers(), HTTP::Timeout{18000});
             diag::log("strm GET " + url + " -> " + std::to_string(body.size()) + " bytes" +
-                (attempt > 1 ? " (attempt " + std::to_string(attempt) + ")" : ""));
+                (attempt > 0 ? " (attempt " + std::to_string(attempt + 1) + ")" : ""));
             return body;
         } catch (const std::exception& e) {
             lastErr = e.what();
-            diag::log("strm GET " + url + " attempt " + std::to_string(attempt) + " -> ERROR: " + lastErr);
+            diag::log("strm GET " + url + " attempt " + std::to_string(attempt + 1) + " -> ERROR: " + lastErr);
         }
     }
+    // Gateway/timeout errors mean the addon server is down or waking, not a bug
+    // in the app — say so, in the UI's language.
+    if (lastErr.find("502") != std::string::npos || lastErr.find("503") != std::string::npos ||
+        lastErr.find("504") != std::string::npos || lastErr.find("Timeout") != std::string::npos ||
+        lastErr.find("timed out") != std::string::npos)
+        throw std::runtime_error("El servidor de anime no responde ahora mismo. Puede estar reiniciándose — intenta de nuevo en un momento. (" + lastErr + ")");
     throw std::runtime_error(lastErr);
 }
 
